@@ -2,30 +2,6 @@ class Prep:
     """This class prepares chess games."""
 
     def __init__(self):
-        self.initialBoard = ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR',
-                             # 00,   01,   02,   03,   04,   05,   06,   07
-                             # a8,   b8,   c8,   d8,   e8,   f8,   g8,   h8
-                             'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP',
-                             # 08,   09,   10,   11,   12,   13,   14,   15
-                             # a7,   b7,   c7,   d7,   e7,   f7,   g7,   h7
-                             '00', '00', '00', '00', '00', '00', '00', '00',
-                             # 16,   17,   18,   19,   20,   21,   22,   23
-                             # a6,   b6,   c6,   d6,   e6,   f6,   g6,   h6
-                             '00', '00', '00', '00', '00', '00', '00', '00',
-                             # 24,   25,   26,   27,   28,   29,   30,   31
-                             # a5,   b5,   c5,   d5,   e5,   f5,   g5,   h5
-                             '00', '00', '00', '00', '00', '00', '00', '00',
-                             # 32,   33,   34,   35,   36,   37,   38,   39
-                             # a4,   b4,   c4,   d4,   e4,   f4,   g4,   h4
-                             '00', '00', '00', '00', '00', '00', '00', '00',
-                             # 40,   41,   42,   43,   44,   45,   46,   47
-                             # a3,   b3,   c3,   d3,   e3,   f3,   g3,   h3
-                             'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP',
-                             # 48,   49,   50,   51,   52,   53,   54,   55
-                             # a2,   b2,   c2,   d2,   e2,   f2,   g2,   h2
-                             'wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR']
-        #                      56,   57,   58,   59,   60,   61,   62,   63
-        #                      a1,   b1,   c1,   d1,   e1,   f1,   g1,   h1
         self.pieceType = {'pawn': ['wP', 'bP'], 'rook': ['wR', 'bR'],
                           'knight': ['wN', 'bN'], 'bishop': ['wB', 'bB'],
                           'queen': ['wQ', 'bQ'], 'king': ['wK', 'bK']}
@@ -55,6 +31,9 @@ class Prep:
         if board[start] in self.pieceColor['white']:
             if board[start - 8] == '00':
                 squares.append(start - 8)
+                if board[start - 16] == '00' and start // 8 == 6:
+                    # pawns can move forward two squares on their first move.
+                    squares.append(start - 16)
             if start % 8 != 0 and board[start - 9] in self.pieceColor['black']:
                 squares.append(start - 9)
             if start % 8 != 7 and board[start - 7] in self.pieceColor['black']:
@@ -62,6 +41,9 @@ class Prep:
         else:
             if board[start + 8] == '00':
                 squares.append(start + 8)
+                if board[start + 16] == '00' and start // 8 == 1:
+                    # pawns can move forward two squares on their first move.
+                    squares.append(start + 16)
             if start % 8 != 0 and board[start + 7] in self.pieceColor['white']:
                 squares.append(start + 7)
             if start % 8 != 7 and board[start + 9] in self.pieceColor['white']:
@@ -165,89 +147,91 @@ class Prep:
             squares.append(start + 9 * i)
         return squares
 
-    def queen(self, board, square):
+    def queen(self, board, start):
         """This method generates queen's legal squares."""
-        return self.rook(board, square) + self.bishop(board, square)
+        return self.rook(board, start) + self.bishop(board, start)
 
-    def brave_king(self, board, start):
-        """This method generates king's legal squares
-        WITHOUT checking dangerous squares. """
+    @staticmethod
+    def brave_king(start):
+        """This method generates every king's squares."""
         squares = []
         for square in [start - 8, start + 8]:
-            if 0 <= square <= 63 and \
-                    (board[square] == '00' or
-                     self.color(board, start, square)):
+            if 0 <= square <= 63:
                 squares.append(square)
         if start % 8 != 0:
             for square in [start - 9, start - 1, start + 7]:
-                if 0 <= square <= 63 and \
-                        (board[square] == '00' or
-                         self.color(board, start, square)):
+                if 0 <= square <= 63:
                     squares.append(square)
         if start % 8 != 7:
             for square in [start - 7, start + 1, start + 9]:
-                if 0 <= square <= 63 and \
-                        (board[square] == '00' or
-                         self.color(board, start, square)):
+                if 0 <= square <= 63:
                     squares.append(square)
         return squares
 
+    def dangerous_square(self, board, square):
+        """This method helps generate dangerous squares for the king."""
+        squares = []
+        if board[square] == 'wP':
+            if square % 8 != 0:
+                squares.append(square - 9)
+            if square % 8 != 7:
+                squares.append(square - 7)
+            return squares
+        elif board[square] == 'bP':
+            if square % 8 != 0:
+                squares.append(square + 7)
+            if square % 8 != 7:
+                squares.append(square + 9)
+            return squares
+        elif board[square] == 'wK' or board[square] == 'bK':
+            return self.brave_king(square)
+        else:
+            for piece in self.pieceType:
+                if board[square] in self.pieceType[piece]:
+                    return getattr(Prep, piece)(self, board, square)
+
     def danger(self, board, start):
         """This method generates dangerous squares for the king."""
-        squares = []
+        squares, temp, copy = [], {}, board[:]
         # Since moving a piece to a square occupied by a piece of the same
         # color is illegal, there are cases that the opponent's piece around
         # the king is guarded, but the square occupied by this piece is not
         # marked as a dangerous square. Turn every opponent's pieces around the
-        # king into opposite-color pieces can resolve this problem.
-        copy = board[:]
-        for square in self.brave_king(board, start):
+        # king into opposite-color can resolve this problem.
+        for square in self.brave_king(start):
             if self.color(copy, start, square):
+                temp[square] = copy[square]
                 copy[square] = 'bP' if copy[square] in \
                     self.pieceColor['white'] else 'wP'
 
-        color = 'black' if board[start] in \
+        color = 'black' if copy[start] in \
             self.pieceColor['white'] else 'white'
-        for piece in self.pieceColor[color]:
-            dangers = []
-            if piece == 'wP':
-                for square in self.coordinate(board, piece):
-                    if start % 8 != 0:
-                        dangers.append(square - 9)
-                    if start % 8 != 7:
-                        dangers.append(square - 7)
-            elif piece == 'bP':
-                for square in self.coordinate(board, piece):
-                    if start % 8 != 0:
-                        dangers.append(square + 7)
-                    if start % 8 != 7:
-                        dangers.append(square + 9)
-            elif piece == 'wK' or piece == 'bK':
-                for square in self.coordinate(board, piece):
-                    dangers.extend(self.brave_king(board, square))
-            else:
-                for square in self.coordinate(board, piece):
-                    for piece_type in self.pieceType:
-                        if piece in self.pieceType[piece_type]:
-                            piece = piece_type
-                    dangers.extend(getattr(Prep, piece)(self, board, square))
-            for square in dangers:  # prevent duplicates
-                if square not in squares:
-                    squares.append(square)
+        for symbol in self.pieceColor[color]:
+            for square in self.coordinate(copy, symbol):
+                for danger in self.dangerous_square(copy, square):
+                    if danger not in squares:  # prevent duplicates
+                        squares.append(danger)
+
+        for square in temp:
+            temp_copy = copy[:]
+            temp_copy[square] = temp[square]
+            for danger in self.dangerous_square(temp_copy, square):
+                if danger not in squares:  # prevent duplicates
+                    squares.append(danger)
         return squares
 
     def king(self, board, start):
         """This method generates king's legal squares."""
         squares = []
-        for square in self.brave_king(board, start):
-            if square not in self.danger(board, start):
+        for square in self.brave_king(start):
+            if (board[square] == '00' or
+                    self.color(board, start, square)) and \
+                    square not in self.danger(board, start):
                 squares.append(square)
         return squares
 
     def legal(self, board, start):
         """This method combines legal squares for the specify piece."""
-        squares = []
         for piece in self.pieceType:
             if board[start] in self.pieceType[piece]:
-                squares.extend(getattr(Prep, piece)(self, board, start))
-        return squares
+                return getattr(Prep, piece)(self, board, start)
