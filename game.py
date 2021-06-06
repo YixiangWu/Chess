@@ -30,6 +30,10 @@ class Game(Prep):
     #          56,   57,   58,   59,   60,   61,   62,   63
     #          a1,   b1,   c1,   d1,   e1,   f1,   g1,   h1
 
+    elements = {'turn': 'white', 'en_passant': 99,
+                'castle': {'white': {'long': True, 'short': True},
+                           'black': {'long': True, 'short': True}}}
+
     def __init__(self):
         super().__init__()
         self.windowSize = (800, 800)
@@ -43,12 +47,66 @@ class Game(Prep):
                 self.squareSize[0], self.squareSize[1])
 
     @classmethod
-    def update(cls, start=0, target=0):
-        """This method updates the chess board."""
+    def update_en_passant(cls, start, target):
+        """This method helps update the chess board and game elements."""
+        if cls.elements['en_passant'] != 99:
+            # capture the enemy pawn
+            if cls.board[start] == 'wP':
+                if target + 8 == cls.elements['en_passant']:
+                    cls.board[target + 8] = '00'
+            elif cls.board[start] == 'bP':
+                if target - 8 == cls.elements['en_passant']:
+                    cls.board[target - 8] = '00'
+
+        # en passant capture must be made on the very next turn
+        cls.elements['en_passant'] = 99
+
+        # check if a pawn moves forward two squares
+        if cls.board[start] == 'wP' and start - target == 16:
+            cls.elements['en_passant'] = target
+        elif cls.board[start] == 'bP' and target - start == 16:
+            cls.elements['en_passant'] = target
+
+    @classmethod
+    def update_castle(cls, start, target):
+        """This method helps update the chess board and game elements."""
+        if cls.board[start] == 'wK' or cls.board[start] == 'bK':
+            rook = 'wR' if cls.board[start] == 'wK' else 'bR'
+            # reposition the rook after castling
+            if target == start - 2:
+                cls.board[start - 4] = '00'
+                cls.board[start - 1] = rook
+            elif target == start + 2:
+                cls.board[start + 3] = '00'
+                cls.board[start + 1] = rook
+
+            # can't castle if the king has previously moved
+            cls.elements['castle'][cls.elements['turn']]['long'] = False
+            cls.elements['castle'][cls.elements['turn']]['short'] = False
+
+        # check if the rook involved has moved or got captured
+        if start == 0 or target == 0:
+            cls.elements['castle']['black']['long'] = False
+        if start == 7 or target == 7:
+            cls.elements['castle']['black']['short'] = False
+        if start == 56 or target == 56:
+            cls.elements['castle']['white']['long'] = False
+        if start == 63 or target == 63:
+            cls.elements['castle']['white']['short'] = False
+
+    @classmethod
+    def update(cls, start=64, target=64):
+        """This method updates the chess board and game elements."""
         if start != target:
+            cls.update_en_passant(start, target)
+            cls.update_castle(start, target)
             cls.board[target] = cls.board[start]
             cls.board[start] = '00'
-        return cls.board
+            if cls.elements['turn'] == 'white':
+                cls.elements['turn'] = 'black'
+            else:
+                cls.elements['turn'] = 'white'
+        return cls.board, cls.elements
 
     def load(self):
         """This method loads piece images."""
@@ -77,30 +135,42 @@ class Game(Prep):
             if piece != '00':
                 window.blit(images[piece], self.get_area(square))
 
-    def click(self, window, board, images, squares):
+    def highlight(self, window, board, images, square, castle, en_passant):
+        """This method highlights the selected square and its legal squares."""
+        pygame.draw.rect(window, (200, 200, 255), self.get_area(square))
+        # highlight the selected square with RGB 200, 200, 255
+        window.blit(images[board[square]], self.get_area(square))
+        for square in self.legal(board, square, castle, en_passant):
+            pygame.draw.rect(window, (255, 100, 130), self.get_area(square))
+            # highlight legal squares with RGB 255, 100, 130
+            if board[square] != '00':
+                window.blit(images[board[square]], self.get_area(square))
+
+    def click(self, window, board, images, squares, elements):
         """This method handles mouse clicks."""
         square = pygame.mouse.get_pos()[0] // self.squareSize[0] + \
             pygame.mouse.get_pos()[1] // self.squareSize[1] * 8
+        castle = elements['castle'][elements['turn']]
+        passant = elements['en_passant']
         squares.append(square)
         if len(squares) == 1:
             start = squares[0]
-            if board[start] != '00':
-                pygame.draw.rect(window, (120, 180, 210), self.get_area(start))
-                # highlight the selected square with RGB 120, 180, 210
-                window.blit(images[board[start]], self.get_area(start))
-                return squares
+            if board[start] in self.pieceColor[elements['turn']]:
+                self.highlight(window, board, images, start, castle, passant)
+                return squares, elements
         else:
             start, target = squares
-            if target in self.legal(board, start):
-                board = Game.update(start, target)
+            if target in self.legal(board, start, castle, passant):
+                board, elements = Game.update(start, target)
         self.draw(window, board, images)
-        return []
+        return [], elements
 
     def main(self):
         """This method takes user inputs, draws and updates the chess board."""
         pygame.init()
+        pygame.display.set_caption('chess')
         window = pygame.display.set_mode(self.windowSize)
-        board = Game.update()
+        board, elements = Game.update()
         images = self.load()
         squares = []
         self.draw(window, board, images)
@@ -110,7 +180,8 @@ class Game(Prep):
                 if event.type == pygame.QUIT:
                     return
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    squares = self.click(window, board, images, squares)
+                    squares, elements = self.click(
+                        window, board, images, squares, elements)
 
 
 if __name__ == '__main__':

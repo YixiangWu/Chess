@@ -17,15 +17,15 @@ class Prep:
             return True
 
     @staticmethod
-    def coordinate(board, piece):
+    def coordinate(board, symbol):
         """This method returns the coordinates of specific piece(s)."""
         squares = []
         for square in range(64):
-            if board[square] == piece:
+            if board[square] == symbol:
                 squares.append(square)
         return squares
 
-    def pawn(self, board, start):
+    def pawn(self, board, start, en_passant):
         """This method generates pawn's legal squares."""
         squares = []
         if board[start] in self.pieceColor['white']:
@@ -48,6 +48,11 @@ class Prep:
                 squares.append(start + 7)
             if start % 8 != 7 and board[start + 9] in self.pieceColor['white']:
                 squares.append(start + 9)
+        if start - 1 == en_passant or start + 1 == en_passant:  # en passant
+            if start // 8 == 3:
+                squares.append(en_passant - 8)
+            elif start // 8 == 4:
+                squares.append(en_passant + 8)
         return squares
 
     def rook(self, board, start):
@@ -190,9 +195,11 @@ class Prep:
                 if board[square] in self.pieceType[piece]:
                     return getattr(Prep, piece)(self, board, square)
 
-    def danger(self, board, start):
+    def danger(self, board, start, color=None):
         """This method generates dangerous squares for the king."""
         squares, temp, copy = [], {}, board[:]
+        if color is None:
+            color = 'black' if board[start] == 'wK' else 'white'
         # Since moving a piece to a square occupied by a piece of the same
         # color is illegal, there are cases that the opponent's piece around
         # the king is guarded, but the square occupied by this piece is not
@@ -201,11 +208,9 @@ class Prep:
         for square in self.brave_king(start):
             if self.color(copy, start, square):
                 temp[square] = copy[square]
-                copy[square] = 'bP' if copy[square] in \
-                    self.pieceColor['white'] else 'wP'
+                copy[square] = 'bP' if color == 'white' else 'wP'
+        copy[start] = '00'
 
-        color = 'black' if copy[start] in \
-            self.pieceColor['white'] else 'white'
         for symbol in self.pieceColor[color]:
             for square in self.coordinate(copy, symbol):
                 for danger in self.dangerous_square(copy, square):
@@ -220,18 +225,49 @@ class Prep:
                     squares.append(danger)
         return squares
 
-    def king(self, board, start):
-        """This method generates king's legal squares."""
+    def castle(self, board, start, condition):
+        """This method generates king's legal squares for castling."""
         squares = []
-        for square in self.brave_king(start):
-            if (board[square] == '00' or
-                    self.color(board, start, square)) and \
-                    square not in self.danger(board, start):
-                squares.append(square)
+        color = 'black' if board[start] == 'wK' else 'white'
+        if start not in self.danger(board, start):
+            if condition['long']:  # long castle
+                for square in range(start - 3, start):
+                    if board[square] != '00':
+                        # squares between king and rook involved are unoccupied
+                        break
+                    elif square in self.danger(board, square, color):
+                        # king cannot cross over nor end on squares
+                        # that are attacked by an enemy piece
+                        if square == start - 3:
+                            continue
+                        else:
+                            break
+                    if square == start - 1:
+                        squares.append(start - 2)
+            if condition['short']:  # short castle
+                for square in range(start + 1, start + 3):
+                    if board[square] != '00' or square in \
+                            self.danger(board, square, color):
+                        break
+                    if square == start + 2:
+                        squares.append(start + 2)
         return squares
 
-    def legal(self, board, start):
+    def king(self, board, start, condition):
+        """This method generates king's legal squares."""
+        squares = self.castle(board, start, condition)
+        for square in self.brave_king(start):
+            if board[square] == '00' or self.color(board, start, square):
+                if square not in self.danger(board, start):
+                    squares.append(square)
+        return squares
+
+    def legal(self, board, start, castle, en_passant):
         """This method combines legal squares for the specify piece."""
         for piece in self.pieceType:
-            if board[start] in self.pieceType[piece]:
+            if board[start] in self.pieceType['pawn']:
+                return self.pawn(board, start, en_passant)
+            elif board[start] in self.pieceType['king']:
+                return self.king(board, start, castle)
+            elif board[start] in self.pieceType[piece]:
                 return getattr(Prep, piece)(self, board, start)
