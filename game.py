@@ -60,12 +60,17 @@ class Game(Prep):
     @classmethod
     def update_move(cls, square):
         """This method updates chess moves."""
-        cls.move.append(square) if square else cls.move.clear()
+        cls.move.clear() if square is None else cls.move.append(square)
 
     @classmethod
     def update_highlights(cls, square):
         """This method updates right-click highlights."""
-        cls.highlights.append(square) if square else cls.highlights.clear()
+        if square is None:
+            cls.highlights.clear()
+        elif square in cls.highlights:
+            cls.highlights.remove(square)
+        else:
+            cls.highlights.append(square)
 
     @classmethod
     def update_en_passant(cls, start, target):

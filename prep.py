@@ -31,7 +31,7 @@ class Prep:
         if board[start] in self.pieceColor['white']:
             if board[start - 8] == '00':
                 squares.append(start - 8)
-                if board[start - 16] == '00' and start // 8 == 6:
+                if start // 8 == 6 and board[start - 16] == '00':
                     # pawns can move forward two squares on their first move.
                     squares.append(start - 16)
             if start % 8 != 0 and board[start - 9] in self.pieceColor['black']:
@@ -41,7 +41,7 @@ class Prep:
         else:
             if board[start + 8] == '00':
                 squares.append(start + 8)
-                if board[start + 16] == '00' and start // 8 == 1:
+                if start // 8 == 1 and board[start + 16] == '00':
                     # pawns can move forward two squares on their first move.
                     squares.append(start + 16)
             if start % 8 != 0 and board[start + 7] in self.pieceColor['white']:
