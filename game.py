@@ -37,6 +37,8 @@ class Game(Prep):
         self.en_passant = None
         self.castle_flags = {'white': {'long': True, 'short': True},
                              'black': {'long': True, 'short': True}}
+        self.game_state = {'white': {'checkmate': False, 'stalemate': False},
+                           'black': {'checkmate': False, 'stalemate': False}}
 
         self.move = []
         self.highlights = []
@@ -137,6 +139,17 @@ class Game(Prep):
                 break
             self.promote = None
 
+    def update_game_state(self, castle, en_passant):
+        """This method determines if the king gets checkmated or stalemated."""
+        king = 'wK' if self.turn == 'white' else 'bK'
+        square = self.coordinate(self.board, king).pop()
+        if self.is_check(self.board, self.turn):
+            if not self.king(self.board, square, castle) and \
+                    not self.escape(self.board, self.turn, castle, en_passant):
+                self.game_state[self.turn]['checkmate'] = True
+        elif not self.all_legals(self.board, self.turn, castle, en_passant):
+            self.game_state[self.turn]['stalemate'] = True
+
     def load(self):
         """This method loads piece images."""
         images = {}
@@ -201,6 +214,7 @@ class Game(Prep):
             start, target = self.move
             if target in self.legal(self.board, start, castle, passant):
                 self.update_game(start, target)
+                self.update_game_state(castle, passant)
         self.draw_board()
         self.update_move(None)
 
