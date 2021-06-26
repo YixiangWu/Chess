@@ -7,9 +7,8 @@ class Menu(Game):
 
     def __init__(self):
         super().__init__()
-        self.fontC32 = pygame.font.Font('resources/Chalkboard.ttc', 32)
-        self.fontMF32 = pygame.font.Font('resources/MarkerFelt.ttc', 32)
-        self.fontSP108 = pygame.font.Font('resources/SignPainter.ttc', 108)
+        self.font40 = pygame.font.Font(None, 40)
+        self.font108 = pygame.font.Font(None, 108)
 
         self.buttonWidth = self.windowSize[0] // 4
         self.buttonHeight = self.windowSize[1] // 16
@@ -25,9 +24,9 @@ class Menu(Game):
         title_surface.fill((255, 220, 140))
         self.window.blit(title_surface, (0, 0))
 
-    def draw_text(self, font, text, position):
+    def draw_text(self, size, text, position):
         """This method draws texts."""
-        font = self.__dict__['font' + font]
+        font = self.__dict__['font' + size]
         self.window.blit(font.render(text, True, (0, 0, 0)),
                          ((self.windowSize[0] - font.size(text)[0]) // 2,
                           self.windowSize[1] // position))
@@ -36,8 +35,8 @@ class Menu(Game):
         """This method draws a button."""
         pygame.draw.rect(self.window, (130, 180, 255), (
             coords[0], coords[1], self.buttonWidth, self.buttonHeight))
-        text_width, text_height = self.fontMF32.size(text)
-        self.window.blit(self.fontMF32.render(text, True, (0, 0, 0)),
+        text_width, text_height = self.font40.size(text)
+        self.window.blit(self.font40.render(text, True, (0, 0, 0)),
                          (coords[0] + (self.buttonWidth - text_width) // 2,
                           coords[1] + (self.buttonHeight - text_height) // 2))
 
@@ -75,7 +74,7 @@ class Menu(Game):
         """This method builds the main menu."""
         self.window.fill((220, 220, 220))  # fills background color
         self.draw_title_surface()
-        self.draw_text('SP108', 'CHESS', 4)
+        self.draw_text('108', 'CHESS', 4)
         button_coords = self.draw_two_buttons('Start', 'Exit')
         while True:
             pygame.display.flip()
@@ -97,8 +96,8 @@ class Menu(Game):
         """This method builds the result page."""
         self.window.fill((220, 220, 220))  # fills background color
         self.draw_title_surface()
-        self.draw_text('SP108', self.get_result()[0], 5)
-        self.draw_text('C32', self.get_result()[1], 3)
+        self.draw_text('108', self.get_result()[0], 5)
+        self.draw_text('40', self.get_result()[1], 3)
         button_coords = self.draw_two_buttons('New Game', 'Main Menu')
         while True:
             pygame.display.flip()

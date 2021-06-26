@@ -5,6 +5,8 @@ from prep import Prep
 class Game(Prep):
     """This class runs the chess game."""
 
+    result = []
+
     def __init__(self):
         super().__init__()
         self.board = ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR',
@@ -168,14 +170,14 @@ class Game(Prep):
         colors = [(220, 230, 230), (120, 150, 170)]
         # light square RGB: 220, 230, 230; dark square RGB: 120, 150, 170
         for square in range(64):
-            piece = self.board[square]
+            symbol = self.board[square]
             if (square // 8) % 2 == 0:  # first squares on odd ranks are light
                 color = colors[square % 2]
             else:  # first squares on even ranks are dark
                 color = colors[(square + 1) % 2]
             pygame.draw.rect(self.window, color, self.get_area(square))
-            if piece != '00':
-                self.window.blit(self.images[piece], self.get_area(square))
+            if symbol != '00':
+                self.window.blit(self.images[symbol], self.get_area(square))
         if self.promote:  # draw a window for pawn promotion prompt
             promote_window = pygame.Surface(
                 (self.squareSize[0], self.windowSize[1] // 2))
@@ -244,14 +246,19 @@ class Game(Prep):
 
     def play(self):
         """This method takes user inputs, draws and updates the chess board."""
+        Game.result = []
         self.draw_board()
         while True:
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    return
+                    return False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.click(event)
+            if self.game_state[self.turn]['checkmate'] or \
+                    self.game_state[self.turn]['stalemate']:
+                Game.result = [self.turn, self.game_state[self.turn]]
+                return True
 
 
 if __name__ == '__main__':
