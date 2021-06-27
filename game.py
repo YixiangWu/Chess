@@ -45,10 +45,15 @@ class Game(Prep):
         self.move = []
         self.highlights = []
 
+        self.chessFont = pygame.font.Font('chess_font.ttf', 86)
+        self.pieceSymbol = {'wP': '\u2659', 'wR': '\u2656', 'wN': '\u2658',
+                            'wB': '\u2657', 'wQ': '\u2655', 'wK': '\u2654',
+                            'bP': '\u265F', 'bR': '\u265C', 'bN': '\u265E',
+                            'bB': '\u265D', 'bQ': '\u265B', 'bK': '\u265A'}
+
         self.windowSize = (800, 800)
         self.squareSize = (self.windowSize[0] // 8, self.windowSize[1] // 8)
         self.window = pygame.display.set_mode(self.windowSize)
-        self.images = self.load()
 
     def get_area(self, square):
         """This method returns the position and dimensions of a square."""
@@ -152,18 +157,18 @@ class Game(Prep):
         elif not self.all_legals(self.board, self.turn, castle, en_passant):
             self.game_state[self.turn]['stalemate'] = True
 
-    def load(self):
-        """This method loads piece images."""
-        images = {}
-        for color in self.pieceColor:
-            for piece in self.pieceType:
-                path = ('images/' + color + '_' + piece + '.png')
-                # name example: white_rook.png
-                piece = set(self.pieceType[piece]). \
-                    intersection(self.pieceColor[color]).pop()
-                img = pygame.image.load(path)
-                images[piece] = pygame.transform.scale(img, self.squareSize)
-        return images
+    def draw_piece(self, piece, square):
+        """This method draws piece symbols."""
+        for symbol in self.pieceSymbol:
+            if piece == symbol:
+                piece = self.pieceSymbol[symbol]
+                break
+        # center piece symbols
+        area = (self.get_area(square)[0] +
+                (self.squareSize[0] - self.chessFont.size(piece)[0]) // 2,
+                self.get_area(square)[1] +
+                (self.squareSize[1] - self.chessFont.size(piece)[1]) // 2)
+        self.window.blit(self.chessFont.render(piece, True, (0, 0, 0)), area)
 
     def draw_board(self):
         """This method draws the chess board and pieces."""
@@ -177,7 +182,7 @@ class Game(Prep):
                 color = colors[(square + 1) % 2]
             pygame.draw.rect(self.window, color, self.get_area(square))
             if symbol != '00':
-                self.window.blit(self.images[symbol], self.get_area(square))
+                self.draw_piece(symbol, square)
         if self.promote:  # draw a window for pawn promotion prompt
             promote_window = pygame.Surface(
                 (self.squareSize[0], self.windowSize[1] // 2))
@@ -189,15 +194,14 @@ class Game(Prep):
                 choices = reversed(choices)
             self.window.blit(promote_window, self.get_area(square)[:2])
             for index, symbol in enumerate(choices):
-                self.window.blit(self.images[symbol],
-                                 self.get_area(square + 8 * index))
+                self.draw_piece(symbol, square + 8 * index)
 
     def highlight(self, square, color):
         """This method highlights the specify square."""
         symbol = self.board[square]
         pygame.draw.rect(self.window, color, self.get_area(square))
         if symbol != '00':
-            self.window.blit(self.images[symbol], self.get_area(square))
+            self.draw_piece(symbol, square)
 
     def make_move(self):
         """This method makes chess moves."""
