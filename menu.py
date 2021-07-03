@@ -24,6 +24,18 @@ class Menu(Game):
         title_surface.fill((255, 220, 140))
         self.window.blit(title_surface, (0, 0))
 
+    def draw_texture(self):
+        """This method draw textures."""
+        for ratio in range(1, 4):
+            interval, color = 13, (0, 130, 130)
+            pos_x = self.windowSize[0] * ratio // interval
+            pos_y = self.windowSize[1] * ratio // interval
+            pygame.draw.line(self.window, color, (0, pos_y), (pos_x, 0), 3)
+            pygame.draw.line(
+                self.window, color,
+                (self.windowSize[0], self.windowSize[1] - pos_y),
+                (self.windowSize[0] - pos_x, self.windowSize[1]), 3)
+
     def draw_text(self, size, text, position):
         """This method draws texts."""
         font = self.__dict__['font' + size]
@@ -74,6 +86,7 @@ class Menu(Game):
         """This method builds the main menu."""
         self.window.fill((220, 220, 220))  # fills background color
         self.draw_title_surface()
+        self.draw_texture()
         self.draw_text('108', 'CHESS', 4)
         button_coords = self.draw_two_buttons('Start', 'Exit')
         while True:
