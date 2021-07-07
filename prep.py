@@ -263,8 +263,14 @@ class Prep:
                     squares.append(square)
         return squares
 
+    def is_check(self, board, color):
+        """This method determines whether the king is in check."""
+        king = 'wK' if color == 'white' else 'bK'
+        square = self.coordinate(board, king).pop()
+        return True if square in self.danger(board, square) else False
+
     def fake_legal(self, board, start, castle, en_passant):
-        """This method returns legal squares without check king in check."""
+        """This method returns legal squares without examining checks."""
         for piece in self.pieceType:
             if board[start] in self.pieceType['pawn']:
                 return self.pawn(board, start, en_passant)
@@ -273,93 +279,28 @@ class Prep:
             elif board[start] in self.pieceType[piece]:
                 return getattr(Prep, piece)(self, board, start)
 
+    def legal(self, board, color, start, castle, en_passant):
+        """
+        This method checks whether a chess move escapes checks by capturing or
+        blocking the dangerous source, also ensures pieces pinned to their king
+        move without surrendering the king, and returns legal squares for the
+        specify piece.
+        """
+        squares = self.fake_legal(board, start, castle, en_passant)
+        copy, copy[start] = board[:], '00'
+        if board[start] not in self.pieceType['king'] and \
+                self.is_check(copy, color):
+            for square in self.fake_legal(board, start, castle, en_passant):
+                copy, copy[square], copy[start] = board[:], board[start], '00'
+                if self.is_check(copy, color):
+                    squares.remove(square)
+        return squares
+
     def all_legals(self, board, color, castle, en_passant):
         """This method generates all pieces' legal squares."""
         squares = []
         for symbol in self.pieceColor[color]:
             for square in self.coordinate(board, symbol):
-                squares.extend(self.fake_legal(
-                    board, square, castle, en_passant))
+                squares.extend(self.legal(
+                    board, color, square, castle, en_passant))
         return squares
-
-    def is_check(self, board, color):
-        """This method determines whether the king is in check."""
-        king = 'wK' if color == 'white' else 'bK'
-        square = self.coordinate(board, king).pop()
-        return True if square in self.danger(board, square) else False
-
-    def escape(self, board, color, castle, en_passant):
-        """The method returns squares to escape check via capture and block."""
-        squares, source = [], {}
-        # trace the dangerous source that gives the check
-        king = 'wK' if color == 'white' else 'bK'
-        king_square = self.coordinate(board, king).pop()
-        opposite_color = 'black' if color == 'white' else 'white'
-        for symbol in self.pieceColor[opposite_color]:
-            for square in self.coordinate(board, symbol):
-                if king_square in self.dangerous_square(board, square):
-                    source[square] = symbol
-
-        # only possible replies to a double check are king moves
-        if len(source.keys()) == 1:
-            # capture the dangerous source to escape the check
-            if list(source.keys()).pop() in self.all_legals(
-                    board, color, castle, en_passant):
-                squares.append(list(source.keys()).pop())
-
-            # block the check
-            blocks, square = [], list(source.keys()).pop()
-            if king_square % 8 == square % 8:  # same file
-                # check if the enemy piece is above the king
-                if king_square - square >= 8:  # above the king
-                    for block in range(square + 8, king_square, 8):
-                        blocks.append(block)
-                # check if the enemy piece if below the king
-                elif king_square - square <= -8:
-                    for block in range(king_square + 8, square, 8):
-                        blocks.append(block)
-            elif king_square // 8 == square // 8:  # same rank
-                # check if the enemy piece is on the left of the king
-                if 0 < king_square - square < 8:
-                    for block in range(square + 1, king_square):
-                        blocks.append(block)
-                # check if the enemy piece is on the right of the king
-                elif -8 < king_square - square < 0:
-                    for block in range(king_square + 1, square):
-                        blocks.append(block)
-            elif (king_square - square) % 7 == 0:  # same diagonal
-                # check if the enemy piece is on the upper right of the king
-                if king_square - square > 0:
-                    for block in range(square + 7, king_square, 7):
-                        blocks.append(block)
-                # check if the enemy piece is on the lower left of the king
-                elif king_square - square < 0:
-                    for block in range(king_square + 7, square, 7):
-                        blocks.append(block)
-            elif (king_square - square) % 9 == 0:  # same diagonal
-                # check if the enemy piece is on the upper left of the king
-                if king_square - square > 0:
-                    for block in range(square + 9, king_square, 9):
-                        blocks.append(block)
-                # check if the enemy piece is on the lower right of the king
-                elif king_square - square < 0:
-                    for block in range(king_square + 9, square, 9):
-                        blocks.append(block)
-            for block in blocks:
-                if block not in squares:  # prevent duplicates
-                    squares.append(block)
-        return squares
-
-    def legal(self, board, start, castle, en_passant):
-        """This method returns legal squares for the specify piece."""
-        color = list(color for color in self.pieceColor.keys() if
-                     board[start] in self.pieceColor[color]).pop()
-        if board[start] in self.pieceType['king']:
-            pass
-        elif self.is_check(board, color):
-            squares = []
-            for square in self.fake_legal(board, start, castle, en_passant):
-                if square in self.escape(board, color, castle, en_passant):
-                    squares.append(square)
-            return squares
-        return self.fake_legal(board, start, castle, en_passant)
