@@ -2,6 +2,11 @@ import pygame
 from prep import Prep
 
 
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 800
+FPS = 30
+
+
 class Game(Prep):
     """This class runs the chess game."""
 
@@ -9,38 +14,10 @@ class Game(Prep):
 
     def __init__(self):
         super().__init__()
-        self.board = ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR',
-                      # 00,   01,   02,   03,   04,   05,   06,   07
-                      # a8,   b8,   c8,   d8,   e8,   f8,   g8,   h8
-                      'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP',
-                      # 08,   09,   10,   11,   12,   13,   14,   15
-                      # a7,   b7,   c7,   d7,   e7,   f7,   g7,   h7
-                      '00', '00', '00', '00', '00', '00', '00', '00',
-                      # 16,   17,   18,   19,   20,   21,   22,   23
-                      # a6,   b6,   c6,   d6,   e6,   f6,   g6,   h6
-                      '00', '00', '00', '00', '00', '00', '00', '00',
-                      # 24,   25,   26,   27,   28,   29,   30,   31
-                      # a5,   b5,   c5,   d5,   e5,   f5,   g5,   h5
-                      '00', '00', '00', '00', '00', '00', '00', '00',
-                      # 32,   33,   34,   35,   36,   37,   38,   39
-                      # a4,   b4,   c4,   d4,   e4,   f4,   g4,   h4
-                      '00', '00', '00', '00', '00', '00', '00', '00',
-                      # 40,   41,   42,   43,   44,   45,   46,   47
-                      # a3,   b3,   c3,   d3,   e3,   f3,   g3,   h3
-                      'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP',
-                      # 48,   49,   50,   51,   52,   53,   54,   55
-                      # a2,   b2,   c2,   d2,   e2,   f2,   g2,   h2
-                      'wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR']
-        #               56,   57,   58,   59,   60,   61,   62,   63
-        #               a1,   b1,   c1,   d1,   e1,   f1,   g1,   h1
-
-        self.turn = 'white'
         self.promote = None
-        self.en_passant = None
-        self.castle_flags = {'white': {'long': True, 'short': True},
-                             'black': {'long': True, 'short': True}}
-        self.game_state = {'white': {'checkmate': False, 'stalemate': False},
-                           'black': {'checkmate': False, 'stalemate': False}}
+        self.promotionChoices = []
+        self.gameState = {'w': {'checkmate': False, 'stalemate': False},
+                          'b': {'checkmate': False, 'stalemate': False}}
 
         self.move = []
         self.highlights = []
@@ -51,9 +28,10 @@ class Game(Prep):
                             'bP': '\u265F', 'bR': '\u265C', 'bN': '\u265E',
                             'bB': '\u265D', 'bQ': '\u265B', 'bK': '\u265A'}
 
-        self.windowSize = (800, 800)
+        self.windowSize = (WINDOW_WIDTH, WINDOW_HEIGHT)
         self.squareSize = (self.windowSize[0] // 8, self.windowSize[1] // 8)
         self.window = pygame.display.set_mode(self.windowSize)
+        self.clock = pygame.time.Clock()
 
     def get_area(self, square):
         """This method returns the position and dimensions of a square."""
@@ -66,111 +44,114 @@ class Game(Prep):
         return (pygame.mouse.get_pos()[0] // self.squareSize[0] +
                 pygame.mouse.get_pos()[1] // self.squareSize[1] * 8)
 
-    def update_move(self, square):
-        """This method updates chess moves."""
-        self.move.clear() if square is None else self.move.append(square)
-
-    def update_highlights(self, square):
-        """This method updates right-click highlights."""
-        if square is None:
-            self.highlights.clear()
-        elif square in self.highlights:
-            self.highlights.remove(square)
-        else:
-            self.highlights.append(square)
-
     def update_en_passant(self, start, target):
-        """This method helps update the chess board and game elements."""
-        if self.en_passant:
+        """This method updates the en passant status for the game."""
+        if self.enPassant:
             # capture the enemy pawn
             if self.board[start] == 'wP':
-                if target + 8 == self.en_passant:
+                if target + 8 == self.enPassant:
+                    self.pieceCoordinate['bP'].remove(target + 8)
                     self.board[target + 8] = '00'
             elif self.board[start] == 'bP':
-                if target - 8 == self.en_passant:
+                if target - 8 == self.enPassant:
+                    self.pieceCoordinate['wP'].remove(target - 8)
                     self.board[target - 8] = '00'
 
         # en passant capture must be made on the very next turn
-        self.en_passant = None
+        self.enPassant = None
 
         # check if a pawn moves forward two squares
-        if self.board[start] == 'wP' and start - target == 16:
-            self.en_passant = target
-        elif self.board[start] == 'bP' and target - start == 16:
-            self.en_passant = target
+        if abs(start - target) == 16 and \
+                self.board[start] == 'wP' or self.board[start] == 'bP':
+            self.enPassant = target
 
     def update_castle(self, start, target):
-        """This method helps update the chess board and game elements."""
-        if self.board[start] == 'wK' or self.board[start] == 'bK':
-            rook = 'wR' if self.board[start] == 'wK' else 'bR'
+        """This method updates the en passant status for the game."""
+        if self.board[start][1] == 'K':
             # reposition the rook after castling
             if target == start - 2:
+                self.pieceCoordinate[self.turn + 'R'].remove(start - 4)
+                self.pieceCoordinate[self.turn + 'R'].add(start - 1)
                 self.board[start - 4] = '00'
-                self.board[start - 1] = rook
+                self.board[start - 1] = self.turn + 'R'
             elif target == start + 2:
+                self.pieceCoordinate[self.turn + 'R'].remove(start + 3)
+                self.pieceCoordinate[self.turn + 'R'].add(start + 1)
                 self.board[start + 3] = '00'
-                self.board[start + 1] = rook
+                self.board[start + 1] = self.turn + 'R'
 
             # can't castle if the king has previously moved
-            self.castle_flags[self.turn]['long'] = False
-            self.castle_flags[self.turn]['short'] = False
+            self.castleFlags[self.turn]['long'] = False
+            self.castleFlags[self.turn]['short'] = False
 
         # check if the rook involved has moved or got captured
         if start == 0 or target == 0:
-            self.castle_flags['black']['long'] = False
+            self.castleFlags['b']['long'] = False
         if start == 7 or target == 7:
-            self.castle_flags['black']['short'] = False
+            self.castleFlags['b']['short'] = False
         if start == 56 or target == 56:
-            self.castle_flags['white']['long'] = False
+            self.castleFlags['w']['long'] = False
         if start == 63 or target == 63:
-            self.castle_flags['white']['short'] = False
+            self.castleFlags['w']['short'] = False
+
+    def update_pawn_promotion(self, target, symbol):
+        """This method updates the pawn promotion status for the game."""
+        if symbol:  # update pawn promotions
+            self.pieceCoordinate[self.board[target]].remove(target)
+            self.pieceCoordinate[symbol].add(target)
+            self.board[target] = symbol
+            self.promote = None
+        for square in range(8):
+            # check if one of the white pawns gets to eighth rank
+            if self.board[square] == 'wP':
+                self.promote = square
+                break
+            # check if one of the black pawns gets to first rank
+            elif self.board[square + 56] == 'bP':
+                self.promote = square + 56
+                break
 
     def update_game_state(self):
         """This method determines if the king gets checkmated or stalemated."""
-        if not self.all_legals(self.board, self.turn,
-                               self.castle_flags[self.turn], self.en_passant):
-            if self.is_check(self.board, self.turn):
-                self.game_state[self.turn]['checkmate'] = True
-            else:
-                self.game_state[self.turn]['stalemate'] = True
+        symbol_index = 0 if self.turn == 'w' else 1
+        # check whether there are any legal moves
+        for symbols in self.pieceType.values():
+            for square in self.pieceCoordinate[symbols[symbol_index]]:
+                if self.legal(square):
+                    return
+        if self.is_attacked(self.board, self.turn):
+            self.gameState[self.turn]['checkmate'] = True
+        else:
+            self.gameState[self.turn]['stalemate'] = True
 
     def update_game(self, start, target, symbol=''):
         """This method updates the chess board and game elements."""
         if start != target:
             self.update_en_passant(start, target)
             self.update_castle(start, target)
+            # update the pieces coordinates set
+            self.pieceCoordinate[self.board[start]].remove(start)
+            self.pieceCoordinate[self.board[start]].add(target)
+            if self.board[target] != '00':  # whether it's a capture
+                self.pieceCoordinate[self.board[target]].remove(target)
+            # update chess board
             self.board[target] = self.board[start]
             self.board[start] = '00'
-            self.turn = 'black' if self.turn == 'white' else 'white'
-        if symbol:  # update pawn promotions
-            self.board[target] = symbol
-        for i in range(8):
-            # check if one of the white pawns gets to eighth rank
-            if self.board[i] == 'wP':
-                self.promote = i
-                break
-            # check if one of the black pawns gets to first rank
-            elif self.board[56 + i] == 'bP':
-                self.promote = 56 + i
-                break
-            self.promote = None
+            # update the player turn
+            self.turn = 'b' if self.turn == 'w' else 'w'
+        self.update_pawn_promotion(target, symbol)
         self.update_game_state()
 
     def draw_piece(self, piece, square):
         """This method draws piece symbols."""
-        for symbol in self.pieceSymbol:
-            if piece == symbol:
-                piece = self.pieceSymbol[symbol]
-                break
-        # center piece symbols
-        area = (self.get_area(square)[0] +
-                (self.squareSize[0] - self.chessFont.size(piece)[0]) // 2,
-                self.get_area(square)[1] +
-                (self.squareSize[1] - self.chessFont.size(piece)[1]) // 2)
-        self.window.blit(self.chessFont.render(piece, True, (0, 0, 0)), area)
+        symbol, area = self.pieceSymbol[piece], list(self.get_area(square))[:2]
+        for area_index in range(2):  # center the piece symbol
+            area[area_index] += (self.squareSize[area_index] -
+                                 self.chessFont.size(symbol)[area_index]) // 2
+        self.window.blit(self.chessFont.render(symbol, True, (0, 0, 0)), area)
 
     def draw_highlight(self, square, color):
-        """This method highlights the specify square."""
+        """This method highlights the specific square."""
         pygame.draw.rect(self.window, color, self.get_area(square))
         if self.board[square] != '00':
             self.draw_piece(self.board[square], square)
@@ -180,76 +161,76 @@ class Game(Prep):
         colors = [(220, 230, 230), (120, 150, 170)]
         # light square RGB: 220, 230, 230; dark square RGB: 120, 150, 170
         for square in range(64):
-            symbol = self.board[square]
             if (square // 8) % 2 == 0:  # first squares on odd ranks are light
                 color = colors[square % 2]
             else:  # first squares on even ranks are dark
                 color = colors[(square + 1) % 2]
             pygame.draw.rect(self.window, color, self.get_area(square))
-            if symbol != '00':
+        for symbol, squares in self.pieceCoordinate.items():
+            for square in squares:
                 self.draw_piece(symbol, square)
 
-        if self.is_check(self.board, self.turn):  # highlight checks
-            king = 'wK' if self.turn == 'white' else 'bK'
-            king_square = self.coordinate(self.board, king).pop()
+        # highlight checks
+        king_square = next(iter(self.pieceCoordinate[self.turn + 'K']))
+        if self.is_attacked(self.board, self.turn, king_square):
             self.draw_highlight(king_square, (255, 100, 130))
 
         if self.promote:  # draw a window for pawn promotion prompt
             promote_window = pygame.Surface(
                 (self.squareSize[0], self.windowSize[1] // 2))
             promote_window.fill((225, 225, 225))
-            color = 'white' if self.board[self.promote] == 'wP' else 'black'
-            square = self.promote if color == 'white' else self.promote - 24
-            choices = self.pieceColor[color][1:5]  # promotion choices
-            if color == 'white':
-                choices = reversed(choices)
+            square = self.promote
+            if self.board[self.promote] == 'wP':  # white pawn promotion prompt
+                self.promotionChoices = ['wQ', 'wB', 'wN', 'wR']
+            else:  # black pawn promotion prompt
+                square -= 24
+                self.promotionChoices = ['bR', 'bN', 'bB', 'bQ']
             self.window.blit(promote_window, self.get_area(square)[:2])
-            for index, symbol in enumerate(choices):
+            for index, symbol in enumerate(self.promotionChoices):
                 self.draw_piece(symbol, square + 8 * index)
 
     def make_move(self):
         """This method makes chess moves."""
         square = self.get_square()
         if not self.move:  # handles the start square of a chess move
-            if self.board[square] in self.pieceColor[self.turn]:
-                self.update_move(square)
+            if self.board[square][0] == self.turn:
+                self.move.append(square)
                 self.draw_highlight(self.move[0], (200, 200, 255))
-                for square in self.legal(
-                        self.board, self.turn, self.move[0],
-                        self.castle_flags[self.turn], self.en_passant):
+                for square in self.legal(self.move[0]):
                     self.draw_highlight(square, (100, 190, 150))
                 return
         else:  # handles the target square of a chess move
-            self.update_move(square)
-            if self.move[1] in self.legal(
-                    self.board, self.turn, self.move[0],
-                    self.castle_flags[self.turn], self.en_passant):
+            self.move.append(square)
+            if self.move[1] in self.legal(self.move[0]):
                 self.update_game(self.move[0], self.move[1])
         self.draw_board()
-        self.update_move(None)
+        self.move.clear()
 
     def pawn_promotion(self):
         """This method handles pawn promotions."""
         square, symbol = self.get_square(), ''
         if self.board[self.promote] == 'wP':  # handles white pawn promotions
             if square % 8 == self.promote and square // 8 <= 3:
-                symbol = self.pieceColor['white'][4 - square // 8]
+                symbol = self.promotionChoices[square // 8]
         else:  # handles black pawn promotions
             if square % 8 == self.promote - 56 and square // 8 >= 4:
-                symbol = self.pieceColor['black'][square // 8 - 3]
+                symbol = self.promotionChoices[square // 8 - 4]
         self.update_game(self.promote, self.promote, symbol)
         self.draw_board()
 
     def click(self, event):
         """This method handles mouse clicks."""
         if event.button == 1:  # left click
-            self.update_highlights(None)
+            self.highlights.clear()
+            self.draw_board()
             self.make_move() if self.promote is None else self.pawn_promotion()
         elif event.button == 3:  # right click
             self.draw_board()
-            self.update_highlights(self.get_square())
+            if self.get_square() not in self.highlights:
+                self.highlights.append(self.get_square())
+            else:
+                self.highlights.remove(self.get_square())
             for square in self.highlights:
-                # highlight right clicks with RGB 220, 80, 20
                 self.draw_highlight(square, (220, 80, 20))
 
     def play(self):
@@ -257,15 +238,17 @@ class Game(Prep):
         Game.result = []
         self.draw_board()
         while True:
+            self.clock.tick(FPS)
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.click(event)
-            if self.game_state[self.turn]['checkmate'] or \
-                    self.game_state[self.turn]['stalemate']:
-                Game.result = [self.turn, self.game_state[self.turn]]
+            if self.gameState[self.turn]['checkmate'] or \
+                    self.gameState[self.turn]['stalemate']:  # get results
+                victor = 'black' if self.turn == 'w' else 'white'
+                Game.result = [victor, self.gameState[self.turn]]
                 return True
 
 

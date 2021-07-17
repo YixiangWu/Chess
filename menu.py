@@ -1,5 +1,5 @@
 import pygame
-from game import Game
+from game import Game, WINDOW_WIDTH, WINDOW_HEIGHT, FPS
 
 
 class Menu(Game):
@@ -10,8 +10,8 @@ class Menu(Game):
         self.font40 = pygame.font.Font(None, 40)
         self.font108 = pygame.font.Font(None, 108)
 
-        self.buttonWidth = self.windowSize[0] // 4
-        self.buttonHeight = self.windowSize[1] // 16
+        self.buttonWidth = WINDOW_WIDTH // 4
+        self.buttonHeight = WINDOW_HEIGHT // 16
 
         self.ongoing = True
         self.in_main_menu = True
@@ -72,15 +72,11 @@ class Menu(Game):
     @staticmethod
     def get_result():
         """This method gets game result from the Game class."""
-        turn = 'black' if Game.result[0] == 'white' else 'white'
-        for game_state in Game.result[1]:
-            if Game.result[1][game_state]:
-                result = ''
-                if game_state == 'checkmate':
-                    result = turn + ' wins'
-                elif game_state == 'stalemate':
-                    result = 'draw'
-                return [result.title(), ('by ' + game_state).title()]
+        if Game.result[1]['checkmate']:
+            return [(Game.result[0] + ' wins').title(),
+                    ('by ' + 'checkmate').title()]
+        elif Game.result[1]['stalemate']:
+            return ['Draw', ('by ' + 'stalemate').title()]
 
     def main_menu(self):
         """This method builds the main menu."""
@@ -90,6 +86,7 @@ class Menu(Game):
         self.draw_text('108', 'CHESS', 4)
         button_coords = self.draw_two_buttons('Start', 'Exit')
         while True:
+            self.clock.tick(FPS)
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -113,6 +110,7 @@ class Menu(Game):
         self.draw_text('40', self.get_result()[1], 3)
         button_coords = self.draw_two_buttons('New Game', 'Main Menu')
         while True:
+            self.clock.tick(FPS)
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
