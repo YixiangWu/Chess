@@ -2,76 +2,77 @@ import pygame
 from game import Game, WINDOW_WIDTH, WINDOW_HEIGHT, FPS
 
 
+BUTTON_WIDTH = WINDOW_WIDTH // 4
+BUTTON_HEIGHT = WINDOW_HEIGHT // 16
+
+
 class Menu(Game):
-    """This class builds a menu for the chess game."""
+    """The class for the game menu."""
 
     def __init__(self):
         super().__init__()
         self.font40 = pygame.font.Font(None, 40)
         self.font108 = pygame.font.Font(None, 108)
 
-        self.buttonWidth = WINDOW_WIDTH // 4
-        self.buttonHeight = WINDOW_HEIGHT // 16
-
         self.ongoing = True
         self.in_main_menu = True
         self.menu()
 
     def draw_title_surface(self):
-        """This method draws a title surface."""
-        title_surface = pygame.Surface(
-            (self.windowSize[0], self.windowSize[1] // 5 * 2))
+        """Draw a title surface."""
+        title_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT // 5 * 2))
         title_surface.fill((255, 220, 140))
         self.window.blit(title_surface, (0, 0))
 
     def draw_texture(self):
-        """This method draw textures."""
+        """Draw textures."""
         for ratio in range(1, 4):
             interval, color = 13, (0, 130, 130)
-            pos_x = self.windowSize[0] * ratio // interval
-            pos_y = self.windowSize[1] * ratio // interval
+            pos_x = WINDOW_WIDTH * ratio // interval
+            pos_y = WINDOW_HEIGHT * ratio // interval
             pygame.draw.line(self.window, color, (0, pos_y), (pos_x, 0), 3)
             pygame.draw.line(
                 self.window, color,
-                (self.windowSize[0], self.windowSize[1] - pos_y),
-                (self.windowSize[0] - pos_x, self.windowSize[1]), 3)
+                (WINDOW_WIDTH, WINDOW_HEIGHT - pos_y),
+                (WINDOW_WIDTH - pos_x, WINDOW_HEIGHT), 3)
 
     def draw_text(self, size, text, position):
-        """This method draws texts."""
+        """Draw texts."""
         font = self.__dict__['font' + size]
         self.window.blit(font.render(text, True, (0, 0, 0)),
-                         ((self.windowSize[0] - font.size(text)[0]) // 2,
-                          self.windowSize[1] // position))
+                         ((WINDOW_WIDTH - font.size(text)[0]) // 2,
+                          WINDOW_HEIGHT // position))
 
     def draw_button(self, text, coords):
-        """This method draws a button."""
+        """Draw a button."""
         pygame.draw.rect(self.window, (130, 180, 255), (
-            coords[0], coords[1], self.buttonWidth, self.buttonHeight))
+            coords[0], coords[1], BUTTON_WIDTH, BUTTON_HEIGHT))
         text_width, text_height = self.font40.size(text)
         self.window.blit(self.font40.render(text, True, (0, 0, 0)),
-                         (coords[0] + (self.buttonWidth - text_width) // 2,
-                          coords[1] + (self.buttonHeight - text_height) // 2))
+                         (coords[0] + (BUTTON_WIDTH - text_width) // 2,
+                          coords[1] + (BUTTON_HEIGHT - text_height) // 2))
 
-    def draw_two_buttons(self, upper_btn, lower_btn):
-        """This method draws two buttons on the same page."""
-        upper_btn_coords = ((self.windowSize[0] - self.buttonWidth) // 2,
-                            self.windowSize[1] // 10 * 7)
-        self.draw_button(upper_btn, upper_btn_coords)
-        lower_btn_coords = ((self.windowSize[0] - self.buttonWidth) // 2,
-                            self.windowSize[1] // 10 * 8)
-        self.draw_button(lower_btn, lower_btn_coords)
-        return [upper_btn_coords, lower_btn_coords]
+    def draw_two_buttons(self, upper_button, lower_button):
+        """Draw two buttons on the same page and return their coordinates."""
+        upper_button_coords = ((WINDOW_WIDTH - BUTTON_WIDTH) // 2,
+                               WINDOW_HEIGHT // 10 * 7)
+        self.draw_button(upper_button, upper_button_coords)
+        lower_button_coords = ((WINDOW_WIDTH - BUTTON_WIDTH) // 2,
+                               WINDOW_HEIGHT // 10 * 8)
+        self.draw_button(lower_button, lower_button_coords)
+        return [upper_button_coords, lower_button_coords]
 
-    def is_button_clicked(self, coords):
-        """This method check whether a button is clicked."""
+    @staticmethod
+    def is_button_clicked(coords):
+        """Check whether a button gets clicked."""
         return True if coords[0] <= pygame.mouse.get_pos()[0] < \
-                       coords[0] + self.buttonWidth and coords[1] < \
+                       coords[0] + BUTTON_WIDTH and coords[1] < \
                        pygame.mouse.get_pos()[1] < \
-                       coords[1] + self.buttonHeight else False
+                       coords[1] + BUTTON_HEIGHT else False
 
     @staticmethod
     def get_result():
-        """This method gets game result from the Game class."""
+        """Get game result from the Game class."""
         if Game.result[1]['checkmate']:
             return [(Game.result[0] + ' wins').title(),
                     ('by ' + 'checkmate').title()]
@@ -79,7 +80,7 @@ class Menu(Game):
             return ['Draw', ('by ' + 'stalemate').title()]
 
     def main_menu(self):
-        """This method builds the main menu."""
+        """Build the main menu."""
         self.window.fill((220, 220, 220))  # fills background color
         self.draw_title_surface()
         self.draw_texture()
@@ -103,7 +104,7 @@ class Menu(Game):
                         return
 
     def result_page(self):
-        """This method builds the result page."""
+        """Build the result page."""
         self.window.fill((220, 220, 220))  # fills background color
         self.draw_title_surface()
         self.draw_text('108', self.get_result()[0], 5)
@@ -126,7 +127,7 @@ class Menu(Game):
                         return
 
     def menu(self):
-        """This method melds main menu and result page with the chess game."""
+        """Meld main menu and result page with the chess game."""
         while self.ongoing:
             if self.in_main_menu:
                 self.main_menu()

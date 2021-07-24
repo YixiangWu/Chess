@@ -1,5 +1,5 @@
 class Prep:
-    """This class prepares chess games."""
+    """The class of chess game essentials."""
 
     def __init__(self):
         self.board = [
@@ -28,24 +28,24 @@ class Prep:
             # 56,   57,   58,   59,   60,   61,   62,   63
             # a1,   b1,   c1,   d1,   e1,   f1,   g1,   h1
         ]
-        self.pieceCoordinate = {
+        self.piece_coordinate = {
             'wP': {48, 49, 50, 51, 52, 53, 54, 55}, 'wR': {56, 63},
             'wN': {57, 62}, 'wB': {58, 61}, 'wQ': {59}, 'wK': {60},
             'bP': {8, 9, 10, 11, 12, 13, 14, 15}, 'bR': {0, 7},
             'bN': {1, 6}, 'bB': {2, 5}, 'bQ': {3}, 'bK': {4}
         }  # better way to locate pieces rather than looping through the board
-        self.pieceType = {
+        self.piece_type = {
             'pawn': ['wP', 'bP'], 'rook': ['wR', 'bR'], 'knight': ['wN', 'bN'],
             'bishop': ['wB', 'bB'], 'queen': ['wQ', 'bQ'], 'king': ['wK', 'bK']
         }
         self.turn = 'w'  # 'w' -> white, 'b' -> black
-        self.enPassant = None
-        self.castleFlags = {'w': {'long': True, 'short': True},
-                            'b': {'long': True, 'short': True}}
+        self.en_passant = None
+        self.castle_flags = {'w': {'long': True, 'short': True},
+                             'b': {'long': True, 'short': True}}
 
     @staticmethod
     def _help_generate_legal_squares(board, start, potential_squares):
-        """This method takes potential squares and returns legal squares."""
+        """Take potential squares and return legal squares correspondingly."""
         squares = []
         if board[start][1] == 'R' or board[start][1] == 'B' or \
                 board[start][1] == 'Q':
@@ -64,7 +64,7 @@ class Prep:
         return squares
 
     def pawn(self, board, start):
-        """This method generates pawn's legal squares."""
+        """Generate pawn's legal squares."""
         squares = []
         direction = -1 if board[start][0] == 'w' else 1  # pawn-push direction
         if board[start + 8 * direction] == '00':
@@ -83,14 +83,14 @@ class Prep:
             squares.append(start + 1 + 8 * direction)
 
         # en passant
-        if (start - 1 == self.enPassant or start + 1 == self.enPassant) and \
-                (start != 32 or self.enPassant != 31) and \
-                (start != 31 or self.enPassant != 32):
-            squares.append(self.enPassant + 8 * direction)
+        if (start - 1 == self.en_passant or start + 1 == self.en_passant) and \
+                (start != 32 or self.en_passant != 31) and \
+                (start != 31 or self.en_passant != 32):
+            squares.append(self.en_passant + 8 * direction)
         return squares
 
     def rook(self, board, start):
-        """This method generates rook's legal squares."""
+        """Generate rook's legal squares."""
         squares = []
         potential_squares_list = [
             range(start - 8, start % 8 - 8, -8),  # going upwards
@@ -104,7 +104,7 @@ class Prep:
         return squares
 
     def knight(self, board, start):
-        """This method generates knight's legal squares."""
+        """Generate knight's legal squares."""
         squares = []
         potential_squares_dict = {
             '6': [start - 15, start + 17],
@@ -126,7 +126,7 @@ class Prep:
         return squares
 
     def bishop(self, board, start):
-        """This method generates bishop's legal squares."""
+        """Generate bishop's legal squares."""
         squares = []
         min_distances = {  # minimum distance to the board edge
             '-7': min(start // 8 + 1, 8 - start % 8),  # upper right
@@ -143,11 +143,11 @@ class Prep:
         return squares
 
     def queen(self, board, start):
-        """This method generates queen's legal squares."""
+        """Generate queen's legal squares."""
         return self.rook(board, start) + self.bishop(board, start)
 
     def _brave_king(self, board, start):
-        """This method generates king's squares without examining dangers."""
+        """Generate all king's squares without examining dangers."""
         squares = []
         potential_squares_dict = {
             '-1': [start - 8, start + 8],
@@ -162,9 +162,9 @@ class Prep:
         return squares
 
     def is_attacked(self, board, color, verifying_square=None):
-        """This method determines whether a square gets attacked."""
+        """Determine whether a square gets attacked."""
         if verifying_square is None:  # the default verifying piece is the king
-            verifying_square = next(iter(self.pieceCoordinate[color + 'K']))
+            verifying_square = next(iter(self.piece_coordinate[color + 'K']))
 
         temp_board = board[:]
 
@@ -199,10 +199,10 @@ class Prep:
                 return True
 
     def castle(self, board, start):
-        """This method generates king's legal squares for castling."""
+        """Generate king's legal squares for castling."""
         squares = []
         if not self.is_attacked(board, board[start][0], start):
-            if self.castleFlags[self.turn]['long']:  # long castle
+            if self.castle_flags[self.turn]['long']:  # long castle
                 for square in range(start - 3, start):
                     if board[square] != '00':
                         # squares between king and rook involved are unoccupied
@@ -214,7 +214,7 @@ class Prep:
                         break
                     if square == start - 1:
                         squares.append(start - 2)
-            if self.castleFlags[self.turn]['short']:  # short castle
+            if self.castle_flags[self.turn]['short']:  # short castle
                 for square in range(start + 1, start + 3):
                     if board[square] != '00' or \
                             self.is_attacked(board, board[start][0], square):
@@ -224,7 +224,7 @@ class Prep:
         return squares
 
     def king(self, board, start):
-        """This method generates king's legal squares."""
+        """Generate king's legal squares."""
         squares = self.castle(board, start)
         for square in self._brave_king(board, start):
             if not self.is_attacked(board, board[start][0], square):
@@ -232,19 +232,19 @@ class Prep:
         return squares
 
     def legal(self, start):
-        """This method returns legal squares for specific piece."""
+        """Return legal squares for the specific piece."""
         squares = []
-        for piece, symbols in self.pieceType.items():
+        for piece, symbols in self.piece_type.items():
             if self.board[start] in symbols:
                 squares = getattr(Prep, piece)(self, self.board, start)
 
         # check whether an en passant move surrenders the king
-        if self.enPassant and self.board[start][1] == 'P':
-            taking_en_passant = self.enPassant - 8 if \
-                self.board[start][0] == 'w' else self.enPassant + 8
+        if self.en_passant and self.board[start][1] == 'P':
+            taking_en_passant = self.en_passant - 8 if \
+                self.board[start][0] == 'w' else self.en_passant + 8
             if taking_en_passant in squares and self.board[start][1] == 'P':
                 temp_board = self.board[:]
-                temp_board[start], temp_board[self.enPassant] = '00', '00'
+                temp_board[start], temp_board[self.en_passant] = '00', '00'
                 if self.is_attacked(temp_board, self.turn):
                     squares.remove(taking_en_passant)
 
