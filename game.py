@@ -1,29 +1,35 @@
+import copy
 import pygame
-from prep import Prep
+from prep import Log, Setup
 
 
 FPS = 30
 WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 800
+WINDOW_HEIGHT = WINDOW_WIDTH
 SQUARE_WIDTH = WINDOW_WIDTH // 8
 SQUARE_HEIGHT = WINDOW_HEIGHT // 8
+PIECE_FONT_SIZE = WINDOW_HEIGHT // 9
 
 
-class Game(Prep):
+class Game(Setup, Log):
     """The class for chess games."""
 
     result = []
 
     def __init__(self):
-        super().__init__()
+        Setup.__init__(self)
+        Log.__init__(self)
         self.move = []
-        self.highlights = []
         self.promote = None
         self.promotion_choices = []
         self.game_state = {'w': {'checkmate': False, 'stalemate': False},
                            'b': {'checkmate': False, 'stalemate': False}}
 
-        self.chess_font = pygame.font.Font('chess_font.ttf', 86)
+        self.highlights = []
+        self.rewind_dict = {}
+        self.castle_flags_for_undo_moves = {}
+
+        self.chess_font = pygame.font.Font('chess_font.ttf', PIECE_FONT_SIZE)
         self.piece_symbol = {'wP': '\u2659', 'wR': '\u2656', 'wN': '\u2658',
                              'wB': '\u2657', 'wQ': '\u2655', 'wK': '\u2654',
                              'bP': '\u265F', 'bR': '\u265C', 'bN': '\u265E',
@@ -62,27 +68,34 @@ class Game(Prep):
 
         # check if a pawn moves forward two squares
         if abs(start - target) == 16 and \
-                self.board[start] == 'wP' or self.board[start] == 'bP':
+                (self.board[start] == 'wP' or self.board[start] == 'bP'):
             self.en_passant = target
 
     def update_castle(self, start, target):
         """Update the castle status for the game."""
         if self.board[start][1] == 'K':
-            # reposition the rook after castling
-            if target == start - 2:
-                self.piece_coordinate[self.turn + 'R'].remove(start - 4)
-                self.piece_coordinate[self.turn + 'R'].add(start - 1)
-                self.board[start - 4] = '00'
-                self.board[start - 1] = self.turn + 'R'
-            elif target == start + 2:
+            if target == start + 2:  # if short castled
+                # reposition the rook after castling
                 self.piece_coordinate[self.turn + 'R'].remove(start + 3)
                 self.piece_coordinate[self.turn + 'R'].add(start + 1)
                 self.board[start + 3] = '00'
                 self.board[start + 1] = self.turn + 'R'
+                # save the current castle flags in case of undoing castling
+                self.castle_flags_for_undo_moves[self.board[start][0]] = \
+                    copy.deepcopy(self.castle_flags[self.board[start][0]])
+            elif target == start - 2:  # if long castled
+                # reposition the rook after castling
+                self.piece_coordinate[self.turn + 'R'].remove(start - 4)
+                self.piece_coordinate[self.turn + 'R'].add(start - 1)
+                self.board[start - 4] = '00'
+                self.board[start - 1] = self.turn + 'R'
+                # save the current castle flags in case of undoing castling
+                self.castle_flags_for_undo_moves[self.board[start][0]] = \
+                    copy.deepcopy(self.castle_flags[self.board[start][0]])
 
             # can't castle if the king has previously moved
-            self.castle_flags[self.turn]['long'] = False
             self.castle_flags[self.turn]['short'] = False
+            self.castle_flags[self.turn]['long'] = False
 
         # check if the rook involved has moved or got captured
         if start == 0 or target == 0:
@@ -100,6 +113,9 @@ class Game(Prep):
             self.piece_coordinate[self.board[target]].remove(target)
             self.piece_coordinate[symbol].add(target)
             self.board[target] = symbol
+            # update the promote information to the logs
+            self.game_log[-1] += '=' + symbol
+            self.san[-1] += '=' + symbol[1]
             self.promote = None
         for square in range(8):
             # check if one of the white pawns gets to eighth rank
@@ -127,6 +143,13 @@ class Game(Prep):
     def update_game(self, start, target, symbol=''):
         """Update the chess board and game elements."""
         if start != target:
+            identical_piece = []
+            # look for pieces that share the same piece type with board[start]
+            # and are also able to get to the target square
+            for square in self.piece_coordinate[self.board[start]]:
+                if target in self.legal(square):
+                    identical_piece.append(square)
+            self.track_the_game(self.board, start, target, identical_piece)
             self.update_en_passant(start, target)
             self.update_castle(start, target)
             # update the pieces coordinates set
@@ -158,8 +181,10 @@ class Game(Prep):
         if self.board[square] != '00':
             self.draw_piece(self.board[square], square)
 
-    def draw_board(self):
+    def draw_board(self, turn=None, board=None, piece_coordinate=None):
         """Draw the chess board and pieces."""
+        turn, board = turn or self.turn, board or self.board
+        piece_coordinate = piece_coordinate or self.piece_coordinate
         colors = [(220, 230, 230), (120, 150, 170)]
         # light square RGB: 220, 230, 230; dark square RGB: 120, 150, 170
         for square in range(64):
@@ -168,16 +193,18 @@ class Game(Prep):
             else:  # first squares on even ranks are dark
                 color = colors[(square + 1) % 2]
             pygame.draw.rect(self.window, color, self.get_area(square))
-        for symbol, squares in self.piece_coordinate.items():
+        for symbol, squares in piece_coordinate.items():
             for square in squares:
                 self.draw_piece(symbol, square)
 
         # highlight checks
-        king_square = next(iter(self.piece_coordinate[self.turn + 'K']))
-        if self.is_attacked(self.board, self.turn, king_square):
+        king_square = next(iter(piece_coordinate[turn + 'K']))
+        if self.is_attacked(board, turn, king_square):
             self.draw_highlight(king_square, (255, 100, 130))
 
-        if self.promote:  # draw a window for pawn promotion prompt
+    def draw_promotion_prompt(self):
+        """Draw a window for pawn promotion prompt."""
+        if self.promote:
             promote_window = pygame.Surface((SQUARE_WIDTH, WINDOW_HEIGHT // 2))
             promote_window.fill((225, 225, 225))
             square = self.promote
@@ -205,6 +232,7 @@ class Game(Prep):
             if self.move[1] in self.legal(self.move[0]):
                 self.update_game(self.move[0], self.move[1])
         self.draw_board()
+        self.draw_promotion_prompt()
         self.move.clear()
 
     def pawn_promotion(self):
@@ -219,7 +247,7 @@ class Game(Prep):
         self.update_game(self.promote, self.promote, symbol)
         self.draw_board()
 
-    def click(self, event):
+    def mouse_click(self, event):
         """Handle mouse clicks."""
         if event.button == 1:  # left click
             self.highlights.clear()
@@ -234,6 +262,64 @@ class Game(Prep):
             for square in self.highlights:
                 self.draw_highlight(square, (220, 80, 20))
 
+    def key_press(self, event):
+        """Handle button presses."""
+        if event.key == pygame.K_LEFT:  # left arrow key -> last position
+            if not self.game_log:
+                # looking for last position at the start position is inhibited
+                return
+            if not self.rewind_dict:
+                # set to the current position
+                self.rewind_dict['turn'] = self.turn
+                self.rewind_dict['board'] = self.board[:]
+                self.rewind_dict['piece coordinate'] = \
+                    copy.deepcopy(self.piece_coordinate)
+            self.rewind_dict = self.update_position(self.rewind_dict, 'last')
+            self.draw_board(self.rewind_dict['turn'],
+                            self.rewind_dict['board'],
+                            self.rewind_dict['piece coordinate'])
+        elif event.key == pygame.K_RIGHT:  # right arrow key -> next position
+            if not self.temp_log:
+                # looking for next position at the latest position is inhibited
+                return
+            if self.promote and len(self.temp_log) == 1:
+                # stop before making promotion choice
+                return
+            self.rewind_dict = self.update_position(self.rewind_dict, 'next')
+            self.draw_board(self.rewind_dict['turn'],
+                            self.rewind_dict['board'],
+                            self.rewind_dict['piece coordinate'])
+        elif event.key == pygame.K_u:  # U key -> undo move
+            if not self.game_log:
+                # undoing move at the start position is inhibited
+                return
+            if self.rewind_dict:
+                # undoing move while rewinding previous positions is inhibited
+                return
+            if self.promote:
+                # undoing move while promoting is inhibited
+                return
+            undo_dict = {'turn': self.turn, 'board': self.board,
+                         'piece coordinate': self.piece_coordinate}
+            undo_dict = self.update_position(undo_dict, 'last')
+            self.turn = undo_dict['turn']
+            self.board = undo_dict['board']
+            self.piece_coordinate = undo_dict['piece coordinate']
+            # check whether the undo move is en passant
+            if self.temp_log[0][-3] == 'E':
+                # reset the en passant flag after undoing an en passant move
+                direction = 1 if self.temp_log[0][0] == 'w' else -1
+                self.en_passant = int(self.temp_log[0][4:6]) + 8 * direction
+            # check whether the undo move is castling
+            if self.temp_log[0][1] == 'K' and \
+                    abs(int(self.temp_log[0][4:6]) -
+                        int(self.temp_log[0][2:4])) == 2:
+                # reset the corresponding castle flags after undoing castling
+                self.castle_flags[self.temp_log[0][0]] = copy.deepcopy(
+                    self.castle_flags_for_undo_moves[self.temp_log[0][0]])
+            self.temp_log.clear()
+            self.draw_board()
+
     def play(self):
         """Take user inputs, draw and update the chess board."""
         Game.result = []
@@ -243,14 +329,25 @@ class Game(Prep):
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    return False
+                    return False  # ongoing -> False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    self.click(event)
+                    if not self.rewind_dict:
+                        self.mouse_click(event)
+                    else:  # if the board just got rewound:
+                        self.draw_board()
+                        if self.promote:
+                            self.draw_promotion_prompt()
+                        # reset the rewind dictionary and game log
+                        self.rewind_dict.clear()
+                        self.game_log += self.temp_log
+                        self.temp_log.clear()
+                elif event.type == pygame.KEYDOWN:
+                    self.key_press(event)
             if self.game_state[self.turn]['checkmate'] or \
                     self.game_state[self.turn]['stalemate']:  # get results
                 victor = 'black' if self.turn == 'w' else 'white'
                 Game.result = [victor, self.game_state[self.turn]]
-                return True
+                return True  # ongoing -> True
 
 
 if __name__ == '__main__':

@@ -2,16 +2,22 @@
 
 A chess game with graphic user interface
 
-### Requirements:
+## Requirements:
 
 * Python 3.*  
 * $ pip install -r requirements.txt
 
-### To get Started:
+## To get Started:
 
-Run main.py
+* Run main.py  
+* Left click to make chess moves  
+* Right click to highlight squares  
+  (Any left-clicks can cancel all highlights)  
+* Press the U key to undo chess moves  
+* Press left-arrow key and right-arrow key to rewind for previous positions  
+  (Any mouse-clicks can return to the current position)
 
-### Features:
+## Features:
 
 * Builtin main menu and result page  
 * Determine legal moves and dangerous squares  
@@ -20,4 +26,6 @@ Run main.py
 * Allow blocking or capturing dangerous source to escape checks  
 * Ensure pieces pinned to their king move without surrendering the king  
 * Highlight chess moves and checks  
-* Highlight right-clicks
+* Highlight right-clicks  
+* Allow undoing chess moves  
+* Allow rewinding for previous positions

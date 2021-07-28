@@ -1,4 +1,7 @@
-class Prep:
+import collections
+
+
+class Setup:
     """The class of chess game essentials."""
 
     def __init__(self):
@@ -40,8 +43,8 @@ class Prep:
         }
         self.turn = 'w'  # 'w' -> white, 'b' -> black
         self.en_passant = None
-        self.castle_flags = {'w': {'long': True, 'short': True},
-                             'b': {'long': True, 'short': True}}
+        self.castle_flags = {'w': {'short': True, 'long': True},
+                             'b': {'short': True, 'long': True}}
 
     @staticmethod
     def _help_generate_legal_squares(board, start, potential_squares):
@@ -236,7 +239,7 @@ class Prep:
         squares = []
         for piece, symbols in self.piece_type.items():
             if self.board[start] in symbols:
-                squares = getattr(Prep, piece)(self, self.board, start)
+                squares = getattr(Setup, piece)(self, self.board, start)
 
         # check whether an en passant move surrenders the king
         if self.en_passant and self.board[start][1] == 'P':
@@ -263,3 +266,136 @@ class Prep:
                 if self.is_attacked(temp_board, self.turn, verifying_square):
                     squares.remove(square)
         return squares
+
+
+class Log:
+    """The class for game logs."""
+
+    def __init__(self):
+        self.game_log = collections.deque([])
+        self.temp_log = collections.deque([])
+        self.san = []  # standard algebraic notation
+
+    @staticmethod
+    def _algebraic_square_notation(square):
+        """Convert numeric square notation to algebraic square notation."""
+        return chr(97 + square % 8) + str(8 - (square // 8))
+
+    def track_the_game(self, board, start, target, identical_piece):
+        """Keep track of the chess game."""
+        move = board[start] + str(start).zfill(2) + str(target).zfill(2)
+        # <piece symbol><start square><target square>
+        move += 'x' + board[target] if board[target] != '00' else ''
+        # notation examples: wP5236, wK6062, wN4528xbP, bP5462=bQ, wP1506xbN=wR
+        # NOTE: pawn promotion log is added in the Game class
+        if board[start][1] == 'P' and start % 8 != target % 8 and \
+                board[target] == '00':  # if taking en passant
+            move += 'EbP' if board[start][0] == 'w' else 'EwP'
+            # en passant notation example: wP2819EbP
+        self.game_log.append(move)
+
+        # generate standard algebraic notation
+        if board[start][1] == 'K' and target - start == 2:
+            self.san.append('O-O')  # short castle
+        elif board[start][1] == 'K' and start - target == 2:
+            self.san.append('O-O-O')  # long castle
+        else:
+            san = board[start][1] if board[start][1] != 'P' else ''
+
+            # it is necessary to disambiguate the move when two or more
+            # identical pieces can move to the same target square
+            identical_piece.remove(start)
+            if len(identical_piece) == 1:  # if there is only one other
+                # identical piece that can move to the target square
+                if start % 8 == identical_piece[0] % 8:
+                    # disambiguate the move with rank if on the same file
+                    san += self._algebraic_square_notation(start)[1]
+                else:  # otherwise, disambiguate the move with file
+                    san += self._algebraic_square_notation(start)[0]
+            elif len(identical_piece) > 1:  # if there are two or more than two
+                # other identical pieces that can move to the target square
+                san += self._algebraic_square_notation(start)
+
+            elif board[start][1] == 'P' and start % 8 != target % 8:
+                # specify a pawn's file whenever it captures a piece
+                san += self._algebraic_square_notation(start)[0]
+            # check if the move captures an enemy
+            if board[target] != '00' or \
+                    board[start][1] == 'P' and start % 8 != target % 8:
+                # since target square of an en passant move is '00', it needs
+                # to be specified in the if statement
+                san += 'x'
+            san += self._algebraic_square_notation(target)
+            self.san.append(san)
+
+    @staticmethod
+    def _help_update_position(rewind_dict, piece, square, operation):
+        """Help manage different operations that update a position."""
+        getattr(rewind_dict['piece coordinate'][piece], operation)(square)
+        rewind_dict['board'][square] = '00' if operation == 'remove' else piece
+        return rewind_dict
+
+    def update_position(self, rewind_dict, flag):
+        """Update turn, board, and piece coordinates of a position."""
+        move, operations = '', ['add', 'remove']
+        if flag == 'last':  # to look for the last position
+            move = self.game_log.pop()
+            self.temp_log.appendleft(move)
+            rewind_dict['turn'] = move[0]
+        elif flag == 'next':  # to look for the next position
+            move = self.temp_log.popleft()
+            self.game_log.append(move)
+            rewind_dict['turn'] = 'b' if move[0] == 'w' else 'w'
+            operations = operations[::-1]  # reverse the operations list
+        # move[:2] -> piece symbol, move[2:4] -> start, move[4:6] -> target
+        self._help_update_position(
+            rewind_dict, move[:2],
+            int(move[2:4]), operations[0])
+        if move[-3] == '=':  # if pawn gets promoted
+            # move[-2:] -> piece symbol that the pawn promoted to
+            self._help_update_position(
+                rewind_dict, move[-2:],
+                int(move[4:6]), operations[1])
+            if move[-6] == 'x':  # if enemy piece got captured while promoting
+                # move[-5:-3] -> piece symbol that gets captured
+                getattr(rewind_dict['piece coordinate'][move[-5:-3]],
+                        operations[0])(int(move[4:6]))
+                if flag == 'last':
+                    rewind_dict['board'][int(move[4:6])] = move[-5:-3]
+        else:
+            self._help_update_position(
+                rewind_dict, move[:2],
+                int(move[4:6]), operations[1])
+            if move[-3] == 'x':  # if enemy piece got captured
+                # move[-2:] -> piece symbol that gets captured
+                getattr(rewind_dict['piece coordinate'][move[-2:]],
+                        operations[0])(int(move[4:6]))
+                if flag == 'last':
+                    rewind_dict['board'][int(move[4:6])] = move[-2:]
+            elif move[-3] == 'E':  # if en passant
+                # move[-2:] -> the pawn that gets captured by en passant
+                if move[-2] == 'b':  # if a black pawn got captured
+                    self._help_update_position(
+                        rewind_dict, move[-2:],
+                        int(move[4:6]) + 8, operations[0])
+                else:  # if a white pawn got captured
+                    self._help_update_position(
+                        rewind_dict, move[-2:],
+                        int(move[4:6]) - 8, operations[0])
+            elif move[1] == 'K' and int(move[4:6]) - int(move[2:4]) == 2:
+                # update rook position if short castle
+                self._help_update_position(
+                    rewind_dict, move[0] + 'R',
+                    int(move[2:4]) + 3, operations[0])
+                self._help_update_position(
+                    rewind_dict, move[0] + 'R',
+                    int(move[2:4]) + 1, operations[1])
+            elif move[1] == 'K' and int(move[2:4]) - int(move[4:6]) == 2:
+                # update rook position if long castle
+                self._help_update_position(
+                    rewind_dict, move[0] + 'R',
+                    int(move[2:4]) - 4, operations[0])
+                self._help_update_position(
+                    rewind_dict, move[0] + 'R',
+                    int(move[2:4]) - 1, operations[1])
+        return rewind_dict
