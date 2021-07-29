@@ -305,16 +305,21 @@ class Log:
             # it is necessary to disambiguate the move when two or more
             # identical pieces can move to the same target square
             identical_piece.remove(start)
-            if len(identical_piece) == 1:  # if there is only one other
-                # identical piece that can move to the target square
-                if start % 8 == identical_piece[0] % 8:
+            if len(identical_piece) >= 1:
+                file, rank = [], []
+                for square in identical_piece:
+                    file.append(square % 8)
+                    rank.append(square // 8)
+                if start % 8 in file and start // 8 in rank:  # if there are
+                    # two or more than two other identical pieces and
+                    # board[start] conflicts with them in both rank and
+                    # file, disambiguate the move with both rank and file
+                    san += self._algebraic_square_notation(start)
+                elif start % 8 in file:
                     # disambiguate the move with rank if on the same file
                     san += self._algebraic_square_notation(start)[1]
                 else:  # otherwise, disambiguate the move with file
                     san += self._algebraic_square_notation(start)[0]
-            elif len(identical_piece) > 1:  # if there are two or more than two
-                # other identical pieces that can move to the target square
-                san += self._algebraic_square_notation(start)
 
             elif board[start][1] == 'P' and start % 8 != target % 8:
                 # specify a pawn's file whenever it captures a piece

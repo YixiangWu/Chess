@@ -20,6 +20,7 @@ A chess game with graphic user interface
 ## Features:
 
 * Builtin main menu and result page  
+* A sidebar displaying game logs  
 * Determine legal moves and dangerous squares  
 * Determine in-check, checkmate, and stalemate  
 * Allow castling, en passant, and pawn promotion  
