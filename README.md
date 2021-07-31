@@ -22,11 +22,17 @@ A chess game with graphic user interface
 * Builtin main menu and result page  
 * A sidebar displaying game logs  
 * Determine legal moves and dangerous squares  
+  (Allow castling, en passant, and pawn promotion)  
+  (Allow blocking or capturing dangerous source to escape checks)  
+  (Ensure pieces pinned to their king move without surrendering the king)  
 * Determine in-check, checkmate, and stalemate  
-* Allow castling, en passant, and pawn promotion  
-* Allow blocking or capturing dangerous source to escape checks  
-* Ensure pieces pinned to their king move without surrendering the king  
 * Highlight chess moves and checks  
 * Highlight right-clicks  
 * Allow undoing chess moves  
 * Allow rewinding for previous positions
+
+## Features to Implement in the Future:
+
+* Determine more draw conditions  
+  (repetition, fifty-move, impossibility of checkmate)  
+* Allow scrolling in the sidebar

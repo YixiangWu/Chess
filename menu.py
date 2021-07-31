@@ -62,13 +62,8 @@ class Menu(Game):
 
     def result_page(self):
         """Customize a menu page for the result page."""
-        result, cause = '', ''
-        if Game.result[1]['checkmate']:
-            result, cause = Game.result[0] + ' wins', 'by ' + 'checkmate'
-        elif Game.result[1]['stalemate']:
-            result, cause = 'draw', 'by ' + 'stalemate'
-        self.draw_text('larger', result.title(), 5)
-        self.draw_text('smaller', cause.title(), 3)
+        self.draw_text('larger', Game.result[0].title(), 5)
+        self.draw_text('smaller', Game.result[1].title(), 3)
         # return button names and the corresponding actions
         return ('New Game', 'Main Menu'), (None, ('in_main_menu', True))
 

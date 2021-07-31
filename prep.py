@@ -336,7 +336,7 @@ class Log:
     @staticmethod
     def _help_update_position(rewind_dict, piece, square, operation):
         """Help manage different operations that update a position."""
-        getattr(rewind_dict['piece coordinate'][piece], operation)(square)
+        getattr(rewind_dict['piece_coordinate'][piece], operation)(square)
         rewind_dict['board'][square] = '00' if operation == 'remove' else piece
         return rewind_dict
 
@@ -363,7 +363,7 @@ class Log:
                 int(move[4:6]), operations[1])
             if move[-6] == 'x':  # if enemy piece got captured while promoting
                 # move[-5:-3] -> piece symbol that gets captured
-                getattr(rewind_dict['piece coordinate'][move[-5:-3]],
+                getattr(rewind_dict['piece_coordinate'][move[-5:-3]],
                         operations[0])(int(move[4:6]))
                 if flag == 'last':
                     rewind_dict['board'][int(move[4:6])] = move[-5:-3]
@@ -373,7 +373,7 @@ class Log:
                 int(move[4:6]), operations[1])
             if move[-3] == 'x':  # if enemy piece got captured
                 # move[-2:] -> piece symbol that gets captured
-                getattr(rewind_dict['piece coordinate'][move[-2:]],
+                getattr(rewind_dict['piece_coordinate'][move[-2:]],
                         operations[0])(int(move[4:6]))
                 if flag == 'last':
                     rewind_dict['board'][int(move[4:6])] = move[-2:]

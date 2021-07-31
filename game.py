@@ -39,8 +39,6 @@ class Game(Setup, Log):
         self.move = []
         self.promote = None
         self.promotion_choices = []
-        self.game_state = {'w': {'checkmate': False, 'stalemate': False},
-                           'b': {'checkmate': False, 'stalemate': False}}
 
         self.highlights = []
         self.rewind_dict = {}
@@ -145,7 +143,7 @@ class Game(Setup, Log):
                 self.promote = square + 56
                 break
 
-    def update_game_state(self):
+    def update_game_result(self):
         """Determine whether the king gets checkmated or stalemated."""
         symbol_index = 0 if self.turn == 'w' else 1
         # check whether there are any legal moves
@@ -154,9 +152,10 @@ class Game(Setup, Log):
                 if self.legal(square):
                     return
         if self.is_attacked(self.board, self.turn):
-            self.game_state[self.turn]['checkmate'] = True
+            victor = 'black' if self.turn == 'w' else 'white'
+            Game.result = [victor + ' wins', 'by checkmate']
         else:
-            self.game_state[self.turn]['stalemate'] = True
+            Game.result = ['draw', 'by stalemate']
 
     def update_game(self, start, target, symbol=''):
         """Update the chess board and game elements."""
@@ -181,7 +180,7 @@ class Game(Setup, Log):
             # update the player turn
             self.turn = 'b' if self.turn == 'w' else 'w'
         self.update_pawn_promotion(target, symbol)
-        self.update_game_state()
+        self.update_game_result()
 
     def draw_piece(self, piece, square):
         """Draw chess piece on the specific square."""
@@ -301,20 +300,19 @@ class Game(Setup, Log):
 
     def undo_move(self):
         """Undo chess move."""
-        if not self.game_log:
+        if not self.game_log or self.rewind_dict or self.promote:
+            # if not self.game_log:
             # undoing move at the start position is inhibited
-            return
-        if self.rewind_dict:
+            # if self.rewind_dict:
             # undoing move while rewinding previous positions is inhibited
-            return
-        if self.promote:
+            # if self.promote:
             # undoing move while promoting is inhibited
             return
         undo_dict = {'turn': self.turn, 'board': self.board,
-                     'piece coordinate': self.piece_coordinate}
+                     'piece_coordinate': self.piece_coordinate}
         undo_dict = self.update_position(undo_dict, 'last')
         self.turn, self.board = undo_dict['turn'], undo_dict['board']
-        self.piece_coordinate = undo_dict['piece coordinate']
+        self.piece_coordinate = undo_dict['piece_coordinate']
         # check whether the undo move is en passant
         if self.temp_log[0][-3] == 'E':
             # reset the en passant flag after undoing an en passant move
@@ -366,23 +364,17 @@ class Game(Setup, Log):
                 # set to the current position
                 self.rewind_dict['turn'] = self.turn
                 self.rewind_dict['board'] = self.board[:]
-                self.rewind_dict['piece coordinate'] = \
+                self.rewind_dict['piece_coordinate'] = \
                     copy.deepcopy(self.piece_coordinate)
             self.rewind_dict = self.update_position(self.rewind_dict, 'last')
-            self.draw_board(self.rewind_dict['turn'],
-                            self.rewind_dict['board'],
-                            self.rewind_dict['piece coordinate'])
+            self.draw_board(**self.rewind_dict)
         elif event.key == pygame.K_RIGHT:  # right arrow key -> next position
-            if not self.temp_log:
+            if not self.temp_log or (self.promote and len(self.temp_log) == 1):
                 # looking for next position at the latest position is inhibited
-                return
-            if self.promote and len(self.temp_log) == 1:
-                # stop before making promotion choice
+                # stop looking for next position before making promotion choice
                 return
             self.rewind_dict = self.update_position(self.rewind_dict, 'next')
-            self.draw_board(self.rewind_dict['turn'],
-                            self.rewind_dict['board'],
-                            self.rewind_dict['piece coordinate'])
+            self.draw_board(**self.rewind_dict)
         elif event.key == pygame.K_u:  # U key -> undo move
             self.undo_move()
 
@@ -410,10 +402,7 @@ class Game(Setup, Log):
                         self.temp_log.clear()
                 elif event.type == pygame.KEYDOWN:
                     self.key_press(event)
-            if self.game_state[self.turn]['checkmate'] or \
-                    self.game_state[self.turn]['stalemate']:  # get results
-                victor = 'black' if self.turn == 'w' else 'white'
-                Game.result = [victor, self.game_state[self.turn]]
+            if Game.result:
                 return True  # ongoing -> True
 
 
