@@ -144,18 +144,63 @@ class Game(Setup, Log):
                 break
 
     def update_game_result(self):
-        """Determine whether the king gets checkmated or stalemated."""
-        symbol_index = 0 if self.turn == 'w' else 1
+        """Determine the result of chess games."""
         # check whether there are any legal moves
-        for symbols in self.piece_type.values():
-            for square in self.piece_coordinate[symbols[symbol_index]]:
-                if self.legal(square):
-                    return
-        if self.is_attacked(self.board, self.turn):
-            victor = 'black' if self.turn == 'w' else 'white'
-            Game.result = [victor + ' wins', 'by checkmate']
+        verifying_squares = []
+        for symbol in self.piece_coordinate:
+            if symbol[0] == self.turn:
+                verifying_squares.extend(list(self.piece_coordinate[symbol]))
+        for square in verifying_squares:
+            if self.legal(square):
+                break
         else:
-            Game.result = ['draw', 'by stalemate']
+            # determine whether the king gets checkmated or stalemated
+            if self.is_attacked(self.board, self.turn):
+                victor = 'black' if self.turn == 'w' else 'white'
+                Game.result = [victor + ' wins', 'by checkmate']
+                return
+            else:
+                Game.result = ['draw', 'by stalemate']
+                return
+
+        # check the possibility of checkmate
+        if len(self.piece_coordinate['wB']) + \
+                len(self.piece_coordinate['wN']) <= 1 and \
+                len(self.piece_coordinate['bB']) + \
+                len(self.piece_coordinate['bN']) <= 1:
+            for symbol in self.piece_coordinate:
+                if symbol[1] != 'B' and symbol[1] != 'N' and \
+                        symbol[1] != 'K' and self.piece_coordinate[symbol]:
+                    break
+            else:
+                Game.result = ['draw', 'insufficient material']
+                return
+
+        # check fifty-move rule and repetition
+        move_count, repetition_count = 0, 0
+        condition_check_dict = {
+            'turn': self.turn, 'board': self.board[:],
+            'piece_coordinate': copy.deepcopy(self.piece_coordinate)
+        }
+        while True:
+            if not self.game_log or self.game_log[-1][1] == 'P' or \
+                    self.game_log[-1][-3] == 'x' or \
+                    self.game_log[-1][-6] == 'x':
+                self.game_log += self.temp_log
+                self.temp_log.clear()
+                break
+            move_count += 1
+            condition_check_dict['turn'] = self.update_position(
+                condition_check_dict, 'last')
+            if condition_check_dict['piece_coordinate'] == \
+                    self.piece_coordinate:
+                repetition_count += 1
+            if repetition_count == 2:
+                Game.result = ['draw', 'repetition']
+                return
+            if move_count == 99:
+                Game.result = ['draw', 'fifty-move rule']
+                return
 
     def update_game(self, start, target, symbol=''):
         """Update the chess board and game elements."""
@@ -192,11 +237,12 @@ class Game(Setup, Log):
                                  self.chess_font.size(symbol)[area_index]) // 2
         self.window.blit(self.chess_font.render(symbol, True, BLACK), area)
 
-    def draw_highlight(self, square, color):
+    def draw_highlight(self, square, color, board=None):
         """Highlight the specific square."""
+        board = board or self.board
         pygame.draw.rect(self.window, color, self.get_area(square))
-        if self.board[square] != '00':
-            self.draw_piece(self.board[square], square)
+        if board[square] != '00':
+            self.draw_piece(board[square], square)
 
     def draw_board(self, turn=None, board=None, piece_coordinate=None):
         """Draw the chess board and pieces."""
@@ -216,7 +262,7 @@ class Game(Setup, Log):
         # highlight checks
         king_square = next(iter(piece_coordinate[turn + 'K']))
         if self.is_attacked(board, turn, king_square):
-            self.draw_highlight(king_square, IN_CHECK_HIGHLIGHT)
+            self.draw_highlight(king_square, IN_CHECK_HIGHLIGHT, board=board)
 
     def draw_promotion_prompt(self):
         """Draw a window for pawn promotion prompt."""
@@ -241,30 +287,35 @@ class Game(Setup, Log):
         pygame.draw.line(self.window, BLACK, (BOARD_WIDTH, 0),
                          (BOARD_WIDTH, WINDOW_HEIGHT), (WINDOW_WIDTH // 250))
 
-    def update_sidebar(self):
+    def update_sidebar(self, move, san_length):
         """Update game logs for the sidebar accordingly."""
-        move, move_count = self.san[-1], (len(self.san) + 1) // 2
-        turn = 'w' if len(self.san) % 2 == 1 else 'b'
+        move_count = (san_length + 1) // 2
+        turn = 'w' if san_length % 2 == 1 else 'b'
+        x_position = BOARD_WIDTH + SIDEBAR_WIDTH // 20 if \
+            turn == 'w' else BOARD_WIDTH + SIDEBAR_WIDTH * 3 // 5
+        y_position = (move_count % 30 if move_count % 30 != 0 or
+                      move_count == 0 else 30) * SIDEBAR_LOG_LINE_SPACING
+
+        # check if the sidebar is going out of space
+        if san_length >= 61 and (san_length - 1) % 60 == 0:
+            self.draw_sidebar()  # cover up old logs
+
+        # neatly format the move log for the sidebar
         if move[0].isupper() and move[0] != 'O':  # if not a pawn move or
             # castling, display the piece notation in figurines for the sidebar
             for symbol in self.piece_symbol:
                 if turn + move[0] == symbol:
                     move = self.piece_symbol[symbol] + move[1:]
-        if move[-2] == '=':  # if a pawn gets promoted, display the notation
+        elif move[-2] == '=':  # if a pawn gets promoted, display the notation
             # of the piece it promoted to in figurines for the sidebar
             for symbol in self.piece_symbol:
                 if turn + move[-1] == symbol:
                     move = move[:-1] + self.piece_symbol[symbol]
-        if turn == 'w':  # if white moves
-            self.window.blit(self.notation_font.render(
-                str(move_count) + '. ' + move, True, BLACK),
-                (BOARD_WIDTH + SIDEBAR_WIDTH // 20,
-                 move_count * SIDEBAR_LOG_LINE_SPACING))
-        else:  # if black moves
-            self.window.blit(
-                self.notation_font.render(move, True, BLACK),
-                (BOARD_WIDTH + SIDEBAR_WIDTH * 3 // 5,
-                 move_count * SIDEBAR_LOG_LINE_SPACING))
+
+        # display a certain move on the sidebar
+        display_object = str(move_count) + '. ' if turn == 'w' else ''
+        self.window.blit(self.notation_font.render(
+            display_object + move, True, BLACK), (x_position, y_position))
 
     def make_move(self):
         """Make chess move based on click inputs."""
@@ -280,7 +331,7 @@ class Game(Setup, Log):
             self.move.append(square)
             if self.move[1] in self.legal(self.move[0]):
                 self.update_game(self.move[0], self.move[1])
-                self.update_sidebar()
+                self.update_sidebar(self.san[-1], len(self.san))
         self.draw_board()
         self.draw_promotion_prompt()
         self.move.clear()
@@ -296,23 +347,23 @@ class Game(Setup, Log):
                 symbol = self.promotion_choices[square // 8 - 4]
         self.update_game(self.promote, self.promote, symbol)
         self.draw_board()
-        self.update_sidebar()
+        self.update_sidebar(self.san[-1], len(self.san))
 
     def undo_move(self):
         """Undo chess move."""
-        if not self.game_log or self.rewind_dict or self.promote:
+        if not self.game_log or self.temp_log or self.promote:
             # if not self.game_log:
             # undoing move at the start position is inhibited
-            # if self.rewind_dict:
+            # if self.temp_log:
             # undoing move while rewinding previous positions is inhibited
             # if self.promote:
             # undoing move while promoting is inhibited
             return
-        undo_dict = {'turn': self.turn, 'board': self.board,
-                     'piece_coordinate': self.piece_coordinate}
-        undo_dict = self.update_position(undo_dict, 'last')
-        self.turn, self.board = undo_dict['turn'], undo_dict['board']
-        self.piece_coordinate = undo_dict['piece_coordinate']
+        if self.rewind_dict:
+            self.rewind_dict.clear()
+        self.turn = self.update_position(
+            {'turn': self.turn, 'board': self.board,
+             'piece_coordinate': self.piece_coordinate}, 'last')
         # check whether the undo move is en passant
         if self.temp_log[0][-3] == 'E':
             # reset the en passant flag after undoing an en passant move
@@ -327,13 +378,21 @@ class Game(Setup, Log):
                 self.castle_flags_for_undo_moves[self.temp_log[0][0]])
         self.temp_log.clear()
         # cover up the undone move on the sidebar
+        san_length = len(self.san)
+        move_count = (san_length + 1) // 2
         x_position = BOARD_WIDTH + SIDEBAR_WIDTH // 20 if \
-            len(self.san) % 2 == 1 else BOARD_WIDTH + SIDEBAR_WIDTH // 2
+            san_length % 2 == 1 else BOARD_WIDTH + SIDEBAR_WIDTH // 2
+        y_position = (move_count % 30 if move_count % 30 != 0 or
+                      move_count == 0 else 30) * SIDEBAR_LOG_LINE_SPACING
         cover_up = pygame.Surface((SIDEBAR_WIDTH, WINDOW_HEIGHT))
         cover_up.fill(SIDEBAR_COLOR)
-        self.window.blit(cover_up, (
-            x_position, (len(self.san) + 1) // 2 * SIDEBAR_LOG_LINE_SPACING))
+        self.window.blit(cover_up, (x_position, y_position))
         self.san.pop()
+        if len(self.san) % 60 == 0:  # if the sidebar is empty after covering
+            # up and the current game logs are on the last sidebar page, draw
+            # the least-thirty-move log
+            for length, move in enumerate(self.san[-60:], len(self.san) - 59):
+                self.update_sidebar(move, length)
         self.draw_board()
 
     def mouse_click(self, event):
@@ -366,14 +425,16 @@ class Game(Setup, Log):
                 self.rewind_dict['board'] = self.board[:]
                 self.rewind_dict['piece_coordinate'] = \
                     copy.deepcopy(self.piece_coordinate)
-            self.rewind_dict = self.update_position(self.rewind_dict, 'last')
+            self.rewind_dict['turn'] = self.\
+                update_position(self.rewind_dict, 'last')
             self.draw_board(**self.rewind_dict)
         elif event.key == pygame.K_RIGHT:  # right arrow key -> next position
             if not self.temp_log or (self.promote and len(self.temp_log) == 1):
                 # looking for next position at the latest position is inhibited
                 # stop looking for next position before making promotion choice
                 return
-            self.rewind_dict = self.update_position(self.rewind_dict, 'next')
+            self.rewind_dict['turn'] = self.\
+                update_position(self.rewind_dict, 'next')
             self.draw_board(**self.rewind_dict)
         elif event.key == pygame.K_u:  # U key -> undo move
             self.undo_move()

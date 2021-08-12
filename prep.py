@@ -236,7 +236,7 @@ class Setup:
 
     def legal(self, start):
         """Return legal squares for the specific piece."""
-        squares = []
+        squares, taking_en_passant = [], None
         for piece, symbols in self.piece_type.items():
             if self.board[start] in symbols:
                 squares = getattr(Setup, piece)(self, self.board, start)
@@ -259,6 +259,10 @@ class Setup:
             temp_board[start] = '00'
         if self.is_attacked(temp_board, self.turn):
             for square in fake_legal_squares:
+                if square == taking_en_passant and square in squares:
+                    # allow pawns to capture the dangerous source with en
+                    # passant to escape checks
+                    continue
                 temp_board = self.board[:]
                 temp_board[start], temp_board[square] = '00', self.board[start]
                 verifying_square = None if \
@@ -338,7 +342,6 @@ class Log:
         """Help manage different operations that update a position."""
         getattr(rewind_dict['piece_coordinate'][piece], operation)(square)
         rewind_dict['board'][square] = '00' if operation == 'remove' else piece
-        return rewind_dict
 
     def update_position(self, rewind_dict, flag):
         """Update turn, board, and piece coordinates of a position."""
@@ -403,4 +406,4 @@ class Log:
                 self._help_update_position(
                     rewind_dict, move[0] + 'R',
                     int(move[2:4]) - 1, operations[1])
-        return rewind_dict
+        return rewind_dict['turn']

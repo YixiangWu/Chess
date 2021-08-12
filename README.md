@@ -10,6 +10,8 @@ A chess game with graphic user interface
 ## To get Started:
 
 * Run main.py  
+  (Please make sure the working directory is this chess folder!  
+  Otherwise, chess_font.ttf might not get found by the Python interpreter.)  
 * Left click to make chess moves  
 * Right click to highlight squares  
   (Any left-clicks can cancel all highlights)  
@@ -26,6 +28,8 @@ A chess game with graphic user interface
   (Allow blocking or capturing dangerous source to escape checks)  
   (Ensure pieces pinned to their king move without surrendering the king)  
 * Determine in-check, checkmate, and stalemate  
+* Determine more draw conditions  
+  (repetition, fifty-move, and impossibility of checkmate)  
 * Highlight chess moves and checks  
 * Highlight right-clicks  
 * Allow undoing chess moves  
@@ -33,6 +37,6 @@ A chess game with graphic user interface
 
 ## Features to Implement in the Future:
 
-* Determine more draw conditions  
-  (repetition, fifty-move, impossibility of checkmate)  
-* Allow scrolling in the sidebar
+* Add a chess engine  
+* Allow scrolling in the sidebar  
+* Read from and save as PGN
