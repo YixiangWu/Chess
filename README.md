@@ -2,12 +2,12 @@
 
 A chess game with graphic user interface
 
-## Requirements:
+## Requirements
 
 * Python 3.*  
 * $ pip install -r requirements.txt
 
-## To get Started:
+## To get Started
 
 * Run main.py  
   (Please make sure the working directory is this chess folder!  
@@ -19,7 +19,7 @@ A chess game with graphic user interface
 * Press left-arrow key and right-arrow key to rewind for previous positions  
   (Any mouse-clicks can return to the current position)
 
-## Features:
+## Features
 
 * Builtin main menu and result page  
 * A sidebar displaying game logs  
@@ -35,8 +35,15 @@ A chess game with graphic user interface
 * Allow undoing chess moves  
 * Allow rewinding for previous positions
 
-## Features to Implement in the Future:
+## Features to Implement in the Future
 
 * Add a chess engine  
 * Allow scrolling in the sidebar  
 * Read from and save as PGN
+
+---
+
+## BONUS: Eight Queens Puzzle
+
+* Run queens.py for the eight queens puzzle  
+* Press ENTER key to generate a new eight-queens position
