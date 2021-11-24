@@ -6,6 +6,7 @@ import pygame
 
 from game import BOARD_WIDTH, WINDOW_HEIGHT, \
     DARK_SQUARE, FPS, Game, LIGHT_SQUARE
+from prep import prep
 
 
 class EightQueens(Game):
@@ -92,6 +93,5 @@ class EightQueens(Game):
 
 
 if __name__ == '__main__':
-    pygame.init()
-    pygame.display.set_caption('eight queens')
+    prep()
     EightQueens().play()

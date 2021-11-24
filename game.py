@@ -1,6 +1,6 @@
-import copy
+from copy import deepcopy
 import pygame
-from prep import Log, Setup
+from prep import Log, prep, Setup
 
 
 FPS = 30
@@ -42,7 +42,7 @@ class Game(Setup, Log):
 
         self.highlights = []
         self.rewind_dict = {}
-        self.castle_flags_for_undo_moves = {}
+        self.castle_flags_for_undoes = {'w': {}, 'b': {}}
 
         self.chess_font = pygame.font.Font('chess_font.ttf', PIECE_SIZE)
         self.notation_font = pygame.font.Font('chess_font.ttf', NOTATION_SIZE)
@@ -83,8 +83,7 @@ class Game(Setup, Log):
         self.en_passant = None
 
         # check if a pawn moves forward two squares
-        if abs(start - target) == 16 and \
-                (self.board[start] == 'wP' or self.board[start] == 'bP'):
+        if abs(start - target) == 16 and (self.board[start][1] == 'P'):
             self.en_passant = target
 
     def update_castle(self, start, target):
@@ -93,41 +92,42 @@ class Game(Setup, Log):
             if target == start + 2:  # if short castled
                 # reposition the rook after castling
                 self.piece_coordinate[self.turn + 'R'].remove(start + 3)
-                self.piece_coordinate[self.turn + 'R'].add(start + 1)
+                self.piece_coordinate[self.turn + 'R'].append(start + 1)
                 self.board[start + 3] = '00'
                 self.board[start + 1] = self.turn + 'R'
-                # save the current castle flags in case of undoing castling
-                self.castle_flags_for_undo_moves[self.board[start][0]] = \
-                    copy.deepcopy(self.castle_flags[self.board[start][0]])
             elif target == start - 2:  # if long castled
                 # reposition the rook after castling
                 self.piece_coordinate[self.turn + 'R'].remove(start - 4)
-                self.piece_coordinate[self.turn + 'R'].add(start - 1)
+                self.piece_coordinate[self.turn + 'R'].append(start - 1)
                 self.board[start - 4] = '00'
                 self.board[start - 1] = self.turn + 'R'
-                # save the current castle flags in case of undoing castling
-                self.castle_flags_for_undo_moves[self.board[start][0]] = \
-                    copy.deepcopy(self.castle_flags[self.board[start][0]])
 
+            # save the current castle flags in case of undoing castling
+            self.castle_flags_for_undoes[self.turn][str(len(
+                self.game_log))] = deepcopy(self.castle_flags[self.turn])
             # can't castle if the king has previously moved
             self.castle_flags[self.turn]['short'] = False
             self.castle_flags[self.turn]['long'] = False
 
         # check if the rook involved has moved or got captured
-        if start == 0 or target == 0:
-            self.castle_flags['b']['long'] = False
-        if start == 7 or target == 7:
-            self.castle_flags['b']['short'] = False
-        if start == 56 or target == 56:
-            self.castle_flags['w']['long'] = False
-        if start == 63 or target == 63:
-            self.castle_flags['w']['short'] = False
+        if start in {0, 7, 56, 63} or target in {0, 7, 56, 63}:
+            # save the current castle flags in case of undoing castling
+            self.castle_flags_for_undoes[self.turn][str(len(
+                self.game_log))] = deepcopy(self.castle_flags[self.turn])
+            if start == 0 or target == 0:
+                self.castle_flags['b']['long'] = False
+            if start == 7 or target == 7:
+                self.castle_flags['b']['short'] = False
+            if start == 56 or target == 56:
+                self.castle_flags['w']['long'] = False
+            if start == 63 or target == 63:
+                self.castle_flags['w']['short'] = False
 
-    def update_pawn_promotion(self, target, symbol):
+    def update_pawn_promotion(self, target, symbol=''):
         """Update the pawn promotion status for the game."""
         if symbol:  # update pawn promotions
             self.piece_coordinate[self.board[target]].remove(target)
-            self.piece_coordinate[symbol].add(target)
+            self.piece_coordinate[symbol].append(target)
             self.board[target] = symbol
             # update the promote information to the logs
             self.game_log[-1] += '=' + symbol
@@ -149,7 +149,7 @@ class Game(Setup, Log):
         verifying_squares = []
         for symbol in self.piece_coordinate:
             if symbol[0] == self.turn:
-                verifying_squares.extend(list(self.piece_coordinate[symbol]))
+                verifying_squares.extend(self.piece_coordinate[symbol])
         for square in verifying_squares:
             if self.legal(square):
                 break
@@ -178,10 +178,8 @@ class Game(Setup, Log):
 
         # check fifty-move rule and repetition
         move_count, repetition_count = 0, 0
-        condition_check_dict = {
-            'turn': self.turn, 'board': self.board[:],
-            'piece_coordinate': copy.deepcopy(self.piece_coordinate)
-        }
+        check_dict = {'turn': self.turn, 'board': self.board[:],
+                      'piece_coordinate': deepcopy(self.piece_coordinate)}
         while True:
             if not self.game_log or self.game_log[-1][1] == 'P' or \
                     self.game_log[-1][-3] == 'x' or \
@@ -190,10 +188,8 @@ class Game(Setup, Log):
                 self.temp_log.clear()
                 break
             move_count += 1
-            condition_check_dict['turn'] = self.update_position(
-                condition_check_dict, 'last')
-            if condition_check_dict['piece_coordinate'] == \
-                    self.piece_coordinate:
+            check_dict['turn'] = self.update_position(check_dict, 'last')
+            if check_dict['piece_coordinate'] == self.piece_coordinate:
                 repetition_count += 1
             if repetition_count == 2:
                 Game.result = ['draw', 'repetition']
@@ -204,27 +200,28 @@ class Game(Setup, Log):
 
     def update_game(self, start, target, symbol=''):
         """Update the chess board and game elements."""
-        if start != target:
-            identical_piece = []
-            # look for pieces that share the same piece type with board[start]
-            # and are also able to get to the target square
-            for square in self.piece_coordinate[self.board[start]]:
-                if target in self.legal(square):
-                    identical_piece.append(square)
-            self.track_the_game(self.board, start, target, identical_piece)
-            self.update_en_passant(start, target)
+        identical_piece = []
+        # look for pieces that share the same piece type with board[start]
+        # and are also able to get to the target square
+        for square in self.piece_coordinate[self.board[start]]:
+            if target in self.legal(square):
+                identical_piece.append(square)
+        self.track_the_game(self.board, start, target, identical_piece)
+        self.update_en_passant(start, target)
+        if self.castle_flags[self.turn]['short'] or \
+                self.castle_flags[self.turn]['long']:
             self.update_castle(start, target)
-            # update the pieces coordinates set
-            self.piece_coordinate[self.board[start]].remove(start)
-            self.piece_coordinate[self.board[start]].add(target)
-            if self.board[target] != '00':  # whether it's a capture
-                self.piece_coordinate[self.board[target]].remove(target)
-            # update chess board
-            self.board[target] = self.board[start]
-            self.board[start] = '00'
-            # update the player turn
-            self.turn = 'b' if self.turn == 'w' else 'w'
-        self.update_pawn_promotion(target, symbol)
+        # update the pieces coordinates set
+        self.piece_coordinate[self.board[start]].remove(start)
+        self.piece_coordinate[self.board[start]].append(target)
+        if self.board[target] != '00':  # whether it's a capture
+            self.piece_coordinate[self.board[target]].remove(target)
+        # update chess board
+        self.board[target] = self.board[start]
+        self.board[start] = '00'
+        # update the player turn
+        self.turn = 'b' if self.turn == 'w' else 'w'
+        self.update_pawn_promotion(target)
         self.update_game_result()
 
     def draw_piece(self, piece, square):
@@ -260,7 +257,7 @@ class Game(Setup, Log):
                 self.draw_piece(symbol, square)
 
         # highlight checks
-        king_square = next(iter(piece_coordinate[turn + 'K']))
+        king_square = piece_coordinate[turn + 'K'][0]
         if self.is_attacked(board, turn, king_square):
             self.draw_highlight(king_square, IN_CHECK_HIGHLIGHT, board=board)
 
@@ -345,7 +342,8 @@ class Game(Setup, Log):
         else:  # handles black pawn promotions
             if square % 8 == self.promote - 56 and square // 8 >= 4:
                 symbol = self.promotion_choices[square // 8 - 4]
-        self.update_game(self.promote, self.promote, symbol)
+        self.update_pawn_promotion(self.promote, symbol)
+        self.update_game_result()
         self.draw_board()
         self.update_sidebar(self.san[-1], len(self.san))
 
@@ -367,21 +365,18 @@ class Game(Setup, Log):
         # check whether the undo move is en passant
         if self.temp_log[0][-3] == 'E':
             # reset the en passant flag after undoing an en passant move
-            direction = 1 if self.temp_log[0][0] == 'w' else -1
+            direction = 1 if self.turn == 'w' else -1
             self.en_passant = int(self.temp_log[0][4:6]) + 8 * direction
         # check whether the undo move is castling
-        if self.temp_log[0][1] == 'K' and \
-                abs(int(self.temp_log[0][4:6]) -
-                    int(self.temp_log[0][2:4])) == 2:
-            # reset the corresponding castle flags after undoing castling
-            self.castle_flags[self.temp_log[0][0]] = copy.deepcopy(
-                self.castle_flags_for_undo_moves[self.temp_log[0][0]])
+        if str(move_count := len(self.game_log) + 1) in self. \
+                castle_flags_for_undoes[self.turn]:
+            # reset the corresponding castle flags
+            self.castle_flags[self.turn] = deepcopy(
+                self.castle_flags_for_undoes[self.turn].pop(str(move_count)))
         self.temp_log.clear()
         # cover up the undone move on the sidebar
-        san_length = len(self.san)
-        move_count = (san_length + 1) // 2
         x_position = BOARD_WIDTH + SIDEBAR_WIDTH // 20 if \
-            san_length % 2 == 1 else BOARD_WIDTH + SIDEBAR_WIDTH // 2
+            self.turn == 'w' else BOARD_WIDTH + SIDEBAR_WIDTH // 2
         y_position = (move_count % 30 if move_count % 30 != 0 or
                       move_count == 0 else 30) * SIDEBAR_LOG_LINE_SPACING
         cover_up = pygame.Surface((SIDEBAR_WIDTH, WINDOW_HEIGHT))
@@ -424,7 +419,7 @@ class Game(Setup, Log):
                 self.rewind_dict['turn'] = self.turn
                 self.rewind_dict['board'] = self.board[:]
                 self.rewind_dict['piece_coordinate'] = \
-                    copy.deepcopy(self.piece_coordinate)
+                    deepcopy(self.piece_coordinate)
             self.rewind_dict['turn'] = self.\
                 update_position(self.rewind_dict, 'last')
             self.draw_board(**self.rewind_dict)
@@ -468,6 +463,5 @@ class Game(Setup, Log):
 
 
 if __name__ == '__main__':
-    pygame.init()
-    pygame.display.set_caption('chess')
+    prep()
     Game().play()

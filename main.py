@@ -1,7 +1,6 @@
-import pygame
 from menu import Menu
+from prep import prep
 
 
-pygame.init()
-pygame.display.set_caption('chess')
-Menu()
+prep()
+Menu().menu()

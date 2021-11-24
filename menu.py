@@ -1,6 +1,7 @@
 import pygame
 from game import Game, FPS, WINDOW_WIDTH, \
     WINDOW_HEIGHT, BLACK, BACKGROUND_COLOR
+from prep import prep
 
 
 TITLE_SURFACE_HEIGHT = WINDOW_HEIGHT // 5 * 2
@@ -22,7 +23,6 @@ class Menu(Game):
 
         self.ongoing = True
         self.in_main_menu = True
-        self.menu()
 
     def draw_title_surface(self):
         """Draw title surface."""
@@ -106,6 +106,5 @@ class Menu(Game):
 
 
 if __name__ == '__main__':
-    pygame.init()
-    pygame.display.set_caption('chess')
-    Menu()
+    prep()
+    Menu().menu()

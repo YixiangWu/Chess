@@ -1,4 +1,6 @@
-import collections
+from collections import deque
+from os import chdir, path
+import pygame
 
 
 class Setup:
@@ -32,10 +34,10 @@ class Setup:
             # a1,   b1,   c1,   d1,   e1,   f1,   g1,   h1
         ]
         self.piece_coordinate = {
-            'wP': {48, 49, 50, 51, 52, 53, 54, 55}, 'wR': {56, 63},
-            'wN': {57, 62}, 'wB': {58, 61}, 'wQ': {59}, 'wK': {60},
-            'bP': {8, 9, 10, 11, 12, 13, 14, 15}, 'bR': {0, 7},
-            'bN': {1, 6}, 'bB': {2, 5}, 'bQ': {3}, 'bK': {4}
+            'wP': [48, 49, 50, 51, 52, 53, 54, 55], 'wR': [56, 63],
+            'wN': [57, 62], 'wB': [58, 61], 'wQ': [59], 'wK': [60],
+            'bP': [8, 9, 10, 11, 12, 13, 14, 15], 'bR': [0, 7],
+            'bN': [1, 6], 'bB': [2, 5], 'bQ': [3], 'bK': [4]
         }  # better way to locate pieces rather than looping through the board
         self.piece_type = {
             'pawn': ['wP', 'bP'], 'rook': ['wR', 'bR'], 'knight': ['wN', 'bN'],
@@ -167,7 +169,7 @@ class Setup:
     def is_attacked(self, board, color, verifying_square=None):
         """Determine whether a square gets attacked."""
         if verifying_square is None:  # the default verifying piece is the king
-            verifying_square = next(iter(self.piece_coordinate[color + 'K']))
+            verifying_square = self.piece_coordinate[color + 'K'][0]
 
         temp_board = board[:]
 
@@ -276,8 +278,8 @@ class Log:
     """The class for game logs."""
 
     def __init__(self):
-        self.game_log = collections.deque([])
-        self.temp_log = collections.deque([])
+        self.game_log = deque([])
+        self.temp_log = deque([])
         self.san = []  # standard algebraic notation
 
     @staticmethod
@@ -345,7 +347,7 @@ class Log:
 
     def update_position(self, rewind_dict, flag):
         """Update turn, board, and piece coordinates of a position."""
-        move, operations = '', ['add', 'remove']
+        move, operations = '', ['append', 'remove']
         if flag == 'last':  # to look for the last position
             move = self.game_log.pop()
             self.temp_log.appendleft(move)
@@ -407,3 +409,13 @@ class Log:
                     rewind_dict, move[0] + 'R',
                     int(move[2:4]) - 1, operations[1])
         return rewind_dict['turn']
+
+
+def prep():
+    """This function prepares the game execution."""
+    # set cwd to the main.py file's directory
+    chdir(path.dirname(path.realpath(__file__)))
+
+    # initialize pygame
+    pygame.init()
+    pygame.display.set_caption('chess')

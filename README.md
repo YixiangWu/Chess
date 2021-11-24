@@ -4,14 +4,12 @@ A chess game with graphic user interface
 
 ## Requirements
 
-* Python 3.*  
+* Python 3.8 or above  
 * $ pip install -r requirements.txt
 
-## To get Started
+## To Get Started
 
 * Run main.py  
-  (Please make sure the working directory is this chess folder!  
-  Otherwise, chess_font.ttf might not get found by the Python interpreter.)  
 * Left click to make chess moves  
 * Right click to highlight squares  
   (Any left-clicks can cancel all highlights)  
@@ -35,7 +33,7 @@ A chess game with graphic user interface
 * Allow undoing chess moves  
 * Allow rewinding for previous positions
 
-## Features to Implement in the Future
+## More to Improve
 
 * Add a chess engine  
 * Allow scrolling in the sidebar  
